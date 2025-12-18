@@ -21,15 +21,15 @@ void udpNtrip()
   
   if (packetLength > 0)
   {
-    Serial.print("[NTRIP] Recebido ");
-    Serial.print(packetLength);
-    Serial.print(" bytes -> Enviando para SerialGPS (GPIO17 TX)...");
+    //Serial.print("[NTRIP] Recebido ");
+    //Serial.print(packetLength);
+    //Serial.print(" bytes -> Enviando para SerialGPS (GPIO17 TX)...");
     
     Eth_udpNtrip.read(Eth_NTRIP_packetBuffer, packetLength);
     size_t bytesWritten = SerialGPS->write(Eth_NTRIP_packetBuffer, packetLength);
     
-    Serial.print(" Enviado: ");
-    Serial.print(bytesWritten);
-    Serial.println(" bytes");
+    //Serial.print(" Enviado: ");
+    //Serial.print(bytesWritten);
+    //Serial.println(" bytes");
   }
 }

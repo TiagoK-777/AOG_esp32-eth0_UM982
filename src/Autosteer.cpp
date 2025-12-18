@@ -182,6 +182,7 @@ void autosteerSetup()
   //50Khz I2C
   //TWBR = 144;   //Is this needed?
 
+  EEPROM.begin(512);                  // Initialize EEPROM for ESP32
   EEPROM.get(0, EEread);              // read identifier
 
   if (EEread != EEP_Ident)            // check on first start and write EEPROM
@@ -189,7 +190,8 @@ void autosteerSetup()
     EEPROM.put(0, EEP_Ident);
     EEPROM.put(10, steerSettings);
     EEPROM.put(40, steerConfig);
-    EEPROM.put(60, networkAddress);    
+    EEPROM.put(60, networkAddress);
+    EEPROM.commit();                  // Commit changes to flash
   }
   else
   {
@@ -614,6 +616,7 @@ void ReceiveUdp()
 
                 //store in EEPROM
                 EEPROM.put(10, steerSettings);
+                EEPROM.commit();
 
                 // Re-Init steer settings
                 steerSettingsInit();
@@ -648,6 +651,7 @@ void ReceiveUdp()
                 //autoSteerUdpData[13];
 
                 EEPROM.put(40, steerConfig);
+                EEPROM.commit();
 
                 // Re-Init
                 steerConfigInit();
@@ -685,6 +689,7 @@ void ReceiveUdp()
         
               //save in EEPROM and restart
               EEPROM.put(60, networkAddress);
+              EEPROM.commit();
               ESP.restart(); // Reset ESP32
               }
             }//end 201
