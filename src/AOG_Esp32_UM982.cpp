@@ -1,0 +1,524 @@
+/* Copywrite 2024 chriskinal
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as
+published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied 
+warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+You should have received a copy of the GNU General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
+Forked from https://github.com/AgHardware/Boards/blob/main/TeensyModules/AIO%20Standard%20v4/Firmware/Autosteer_gps_teensy_v4/Autosteer_gps_teensy_v4.ino
+*/
+
+#include <Arduino.h>
+#include "GlobalVariables.h"
+#include "zNMEAParser.h"
+#include <Wire.h>
+#include "BNO08x_AOG.h"
+#include <SimpleKalmanFilter.h>
+// Ethernet for ESP32 WT32-ETH01
+#include <ETH.h>
+#include <WiFiUdp.h>
+
+// Forward declarations for cross-file functions
+void autosteerSetup();
+void autosteerLoop();
+void EthernetStart();
+void udpNtrip();
+void errorHandler();
+void GGA_Handler();
+void VTG_Handler();
+void HPR_Handler();
+void readBNO();
+void BuildNmea();
+void CalculateChecksum(char* Sentence);
+void imuHandler();
+void imuDualDelta();
+void fuseIMU();
+
+/************************* User Settings *************************/
+bool udpPassthrough = false;  // False = GPS neeeds to send GGA, VTG & HPR messages. True = GPS needs to send KSXT messages only.
+bool makeOGI = false;         //Set to true to make PAOGI messages. Else PNADA message will be made.
+bool baseLineCheck = false;   //Set to true to use IMU fusion with UM982
+// Moved to GlobalVariables.h: const bool invertRoll= true;  //Used for IMU with dual antenna
+#define baseLineLimit 5       //Max CM differance in baseline
+
+// Heading correction can be enetered into the UM982 config or AOG GUI so this can be 0. If not in UM982 config or AOG GUI, set here.
+// Negative number = west, positive number = east.
+double headingcorr = 0;
+// double headingcorr = 900;  //90deg heading correction (90deg*10)
+// Roll correction can be entered in the AOG GUI. If not enter roll correction here.
+// Roll correction. Negative number = left; positive number = right.
+//double rollcorr = 50;
+
+// Kalman Filtering
+// e_mea: Measurement Uncertainty - How much do we expect to our measurement vary
+// e_est: Estimation Uncertainty - Can be initilized with the same value as e_mea since the kalman filter will adjust its value.
+// q: Process Variance - usually a small number between 0.001 and 1 - how fast your measurement moves. Recommended 0.01. Should be tunned to your needs.
+bool filterRoll = false;
+float rollMEA = 1;
+float rollEST = 1;
+float rollQ = 0.01;
+
+bool filterHeading = false;
+float headingMEA = 1;
+float headingEST = 1;
+float headingQ = 0.01;
+
+// Serial Ports - ESP32 WT32-ETH01
+#define SerialAOG Serial                //AgIO USB conection
+#define SerialRTK Serial1               //RTK radio (GPIO 4/RX, 2/TX)
+HardwareSerial* SerialGPS = &Serial2;   //Main postion receiver (GGA - GPIO 5/RX, 17/TX)
+const int32_t baudAOG = 115200;         //USB connection speed
+const int32_t baudGPS = 115200;         //UM982 connection speed
+const int32_t baudRTK = 9600;         // most are using Xbee radios with default of 115200
+
+// Send data to AgIO via usb
+bool sendUSB = true;
+
+/************************* End User Settings **********************/
+
+SimpleKalmanFilter rollFilter(rollMEA, rollEST, rollQ);
+SimpleKalmanFilter headingFilter(headingMEA, headingEST, headingQ);
+
+bool gotCR = false;
+bool gotLF = false;
+bool gotDollar = false;
+char msgBuf[254];
+int msgBufLen = 0;
+
+#define ImuWire Wire        //SCL=19:A5 SDA=18:A4
+#define RAD_TO_DEG_X_10 572.95779513082320876798154814105
+
+#define REPORT_INTERVAL 20    //BNO report time, we want to keep reading it quick & often. Its not timed to anything just give constant data.
+uint32_t READ_BNO_TIME = 0;   //Used stop BNO data pile up (This version is without resetting BNO everytime)
+
+//Status LED's - ESP32 WT32-ETH01 GPIO
+#define GGAReceivedLED 2          //ESP32 onboard LED (GPIO2)
+#define Power_on_LED 14           //Red
+#define Ethernet_Active_LED 15    //Green  
+#define GPSRED_LED 12             //Red (Flashing = NO IMU or Dual, ON = GPS fix with IMU)
+#define GPSGREEN_LED 13           //Green (Flashing = Dual bad, ON = Dual good)
+#define AUTOSTEER_STANDBY_LED 32  //Red
+#define AUTOSTEER_ACTIVE_LED 33   //Green
+uint32_t gpsReadyTime = 0;        //Used for GGA timeout
+
+void errorHandler();
+void GGA_Handler();
+void VTG_Handler();
+void HPR_Handler();
+void autosteerSetup();
+void EthernetStart();
+void udpNtrip();
+void BuildNmea();
+void relPosDecode();
+void readBNO();
+void autosteerLoop();
+void ReceiveUdp();
+
+ConfigIP networkAddress;   //3 bytes
+
+// IP & MAC address of this module of this module
+byte Eth_myip[4] = { 0, 0, 0, 0}; //This is now set via AgIO
+byte mac[] = {0x00, 0x00, 0x56, 0x00, 0x00, 0x78};
+
+unsigned int portMy = 5120;             // port of this module
+unsigned int AOGNtripPort = 2233;       // port NTRIP data from AOG comes in
+unsigned int AOGAutoSteerPort = 8888;   // port Autosteer data from AOG comes in
+unsigned int portDestination = 9999;    // Port of AOG that listens
+char Eth_NTRIP_packetBuffer[512];       // buffer for receiving ntrip data
+
+// WiFiUDP instance for ESP32 to send and receive packets over UDP
+WiFiUDP Eth_udpPAOGI;     //Out port 5544
+WiFiUDP Eth_udpNtrip;     //In port 2233
+WiFiUDP Eth_udpAutoSteer; //In & Out Port 8888
+
+IPAddress Eth_ipDestination;
+
+byte CK_A = 0;
+byte CK_B = 0;
+int relposnedByteCount = 0;
+
+//Speed pulse output
+uint32_t speedPulseUpdateTimer = 0;
+byte velocityPWM_Pin = 36;      // Velocity (MPH speed) PWM pin
+
+bool dualReadyGGA = false;
+bool dualReadyRelPos = false;
+
+// booleans to see if we are using BNO08x
+bool useBNO08x = false;
+
+// BNO08x address variables to check where it is
+const uint8_t bno08xAddresses[] = { 0x4A, 0x4B };
+const int16_t nrBNO08xAdresses = sizeof(bno08xAddresses) / sizeof(bno08xAddresses[0]);
+uint8_t bno08xAddress;
+BNO080 bno08x;
+
+double baseline = 0;
+double rollDual = 0;
+double pitchDual = 0;
+double relPosD = 0;
+double heading = 0;
+
+byte ackPacket[72] = {0xB5, 0x62, 0x01, 0x3C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+
+constexpr int serial_buffer_size = 512;
+uint8_t GPSrxbuffer[serial_buffer_size];    //Extra serial rx buffer
+uint8_t GPStxbuffer[serial_buffer_size];    //Extra serial tx buffer
+uint8_t GPS2rxbuffer[serial_buffer_size];   //Extra serial rx buffer
+uint8_t GPS2txbuffer[serial_buffer_size];   //Extra serial tx buffer
+uint8_t RTKrxbuffer[serial_buffer_size];    //Extra serial rx buffer
+
+/* A parser is declared with 3 handlers at most */
+NMEAParser<4> parser;
+
+bool isTriggered = false;
+bool blink = false;
+
+bool Autosteer_running = true; //Auto set off in autosteer setup
+bool Ethernet_running = false; //Auto set on in ethernet setup
+bool GGA_Available = false;    //Do we have GGA on correct port?
+uint32_t PortSwapTime = 0;
+
+double roll = 0;
+double pitch = 0;
+double yaw = 0;
+
+//Fusing BNO with Dual
+double rollDelta;
+double rollDeltaSmooth;
+double correctionHeading;
+double gyroDelta;
+double imuGPS_Offset;
+double gpsHeading;
+double imuCorrected;
+// Moved to GlobalVariables.h: #define twoPI 6.28318530717958647692
+// Moved to GlobalVariables.h: #define PIBy2 1.57079632679489661923
+
+// Buffer to read chars from Serial, to check if "!AOG" is found
+uint8_t aogSerialCmd[4] = { '!', 'A', 'O', 'G'};
+uint8_t aogSerialCmdBuffer[6];
+uint8_t aogSerialCmdCounter = 0;
+
+//-=-=-=-=- UBX binary specific variables
+struct ubxPacket
+{
+	uint8_t cls;
+	uint8_t id;
+	uint16_t len; //Length of the payload. Does not include cls, id, or checksum bytes
+	uint16_t counter; //Keeps track of number of overall bytes received. Some responses are larger than 255 bytes.
+	uint16_t startingSpot; //The counter value needed to go past before we begin recording into payload array
+	uint8_t *payload; // We will allocate RAM for the payload if/when needed.
+	uint8_t checksumA; //Given to us from module. Checked against the rolling calculated A/B checksums.
+	uint8_t checksumB;
+    
+	////sfe_ublox_packet_validity_e valid;			 //Goes from NOT_DEFINED to VALID or NOT_VALID when checksum is checked
+	////sfe_ublox_packet_validity_e classAndIDmatch; // Goes from NOT_DEFINED to VALID or NOT_VALID when the Class and ID match the requestedClass and requestedID
+};
+
+// Setup procedure ---------------------------------------------------------------------------------------------------------------
+void setup()
+{
+  delay(500);                         //Small delay so serial can monitor start up
+
+  pinMode(GGAReceivedLED, OUTPUT);
+  pinMode(Power_on_LED, OUTPUT);
+  pinMode(Ethernet_Active_LED, OUTPUT);
+  pinMode(GPSRED_LED, OUTPUT);
+  pinMode(GPSGREEN_LED, OUTPUT);
+  pinMode(AUTOSTEER_STANDBY_LED, OUTPUT);
+  pinMode(AUTOSTEER_ACTIVE_LED, OUTPUT);
+
+  // the dash means wildcard
+ 
+  parser.setErrorHandler(errorHandler);
+  parser.addHandler("G-GGA", GGA_Handler);
+  parser.addHandler("G-VTG", VTG_Handler);
+  if (baseLineCheck) {
+    parser.addHandler("G-HPR", HPR_Handler);
+  }
+
+  delay(10);
+  Serial.begin(baudAOG);
+  delay(10);
+  Serial.println("Start setup");
+
+  SerialGPS->begin(baudGPS, SERIAL_8N1, 5, 17); // RX=GPIO5, TX=GPIO17
+  //SerialGPS->setRxBufferSize(serial_buffer_size); // ESP32 buffer config
+
+  delay(10);
+  SerialRTK.begin(baudRTK, SERIAL_8N1, 4, 2); // RX=GPIO4, TX=GPIO2
+
+  Serial.println("SerialAOG, SerialRTK, SerialGPS initialized");
+
+  Serial.println("\r\nStarting AutoSteer...");
+  autosteerSetup();
+  
+  Serial.println("\r\nStarting Ethernet...");
+  EthernetStart();
+
+  Serial.println("\r\nStarting BNO085...");
+
+  // Initialize BNO085 if present.
+uint8_t error;
+ImuWire.begin(33, 32); //SDA=GPIO33 SCL=GPIO32
+ImuWire.setClock(100000); // Começa com 100kHz (mais lento)
+
+delay(100); // Delay adicional após inicializar I²C
+
+for (int16_t i = 0; i < nrBNO08xAdresses; i++)
+{
+    bno08xAddress = bno08xAddresses[i];
+
+    ImuWire.beginTransmission(bno08xAddress);
+    error = ImuWire.endTransmission();
+
+    if (error == 0)
+    {
+        Serial.print("0x");
+        Serial.print(bno08xAddress, HEX);
+        Serial.println(" BNO08X detected, initializing...");
+
+        delay(100); // Delay antes de tentar begin()
+
+        // Initialize BNO080 lib
+        if (bno08x.begin(bno08xAddress, ImuWire))
+        {
+            Serial.println("BNO08X initialized successfully!");
+            
+            delay(500);
+
+            //Increase I2C data rate to 400kHz APÓS sucesso
+            ImuWire.setClock(400000); 
+
+            delay(200);
+
+            // Choose rotation vector mode
+            if (useMagnetometer) {
+                // RotationVector: Uses magnetometer - stable yaw, may have magnetic interference
+                bno08x.enableRotationVector(REPORT_INTERVAL);
+                Serial.println("Using RotationVector (with magnetometer)");
+            } else {
+                // GameRotationVector: No magnetometer - yaw drifts over time
+                bno08x.enableGameRotationVector(REPORT_INTERVAL);
+                Serial.println("Using GameRotationVector (no magnetometer)");
+            }
+            
+            // Enable gyroscope for yaw rate measurement
+            if (useYawRate) {
+                bno08x.enableGyro(REPORT_INTERVAL);
+            }
+            
+            delay(500);
+            
+            useBNO08x = true;
+        }
+        else
+        {
+            Serial.println("BNO080 begin() failed.");
+        }
+    }
+    else
+    {
+        Serial.print("0x");
+        Serial.print(bno08xAddress, HEX);
+        Serial.println(" BNO08X not found");
+    }
+    if (useBNO08x) break;
+}
+  
+
+  delay(100);
+  Serial.print("useBNO08x = ");
+  Serial.println(useBNO08x);
+
+  Serial.println("\r\nEnd setup, waiting for GPS...\r\n");
+  
+  // Limpa buffer serial do GPS para sincronização
+  delay(1000);
+  while(SerialGPS->available()) {
+    SerialGPS->read(); // Descarta dados antigos
+  }
+  Serial.println("GPS buffer cleared, ready to receive\n");
+}
+
+void loop()
+{
+    // Read incoming nmea from GPS
+    if (SerialGPS->available())
+    {
+      static bool synced = false;
+      
+      // Sincroniza com o início da mensagem NMEA
+      if (!synced) {
+        char c = SerialGPS->read();
+        if (c == '$') {
+          synced = true;
+          parser << c; // Envia o $ para o parser
+        }
+        // Continua no próximo ciclo até encontrar $
+      }
+      else if (udpPassthrough)
+      {
+          //char mChar;
+          char incoming = SerialGPS->read();
+          //Serial.println(incoming);
+          switch (incoming) {
+              case '$':
+              msgBuf[msgBufLen] = incoming;
+              msgBufLen ++;
+              gotDollar = true;
+              break;
+              case '\r':
+              msgBuf[msgBufLen] = incoming;
+              msgBufLen ++;
+              gotCR = true;
+              gotDollar = false;
+              break;
+              case '\n':
+              msgBuf[msgBufLen] = incoming;
+              msgBufLen ++;
+              gotLF = true;
+              gotDollar = false;
+              break;
+              default:
+              if (gotDollar)
+                  {
+                  msgBuf[msgBufLen] = incoming;
+                  msgBufLen ++;
+                  }
+              break;
+          }
+          if (gotCR && gotLF){
+              //Serial.print(msgBuf);
+              //Serial.println(msgBufLen);
+              if (sendUSB) { SerialAOG.write(msgBuf); } // Send USB GPS data if enabled in user settings
+              if (Ethernet_running){
+                  Eth_udpPAOGI.beginPacket(Eth_ipDestination, portDestination);
+                  Eth_udpPAOGI.write((const uint8_t*)msgBuf, msgBufLen);
+                  Eth_udpPAOGI.endPacket();
+              }
+              gotCR = false;
+              gotLF = false;
+              gotDollar = false;
+              memset( msgBuf, 0, 254 );
+              msgBufLen = 0;
+              if (blink)
+              {
+                  digitalWrite(GGAReceivedLED, HIGH);
+              }
+              else
+              {
+                  digitalWrite(GGAReceivedLED, LOW);
+              }
+
+              blink = !blink;
+              digitalWrite(GPSGREEN_LED, HIGH);   //Turn green GPS LED ON
+          }
+      }
+      else
+      {
+        // Processa normalmente após sincronização
+        while (SerialGPS->available()) {
+          char c = SerialGPS->read();
+          parser << c;
+          
+          // Re-sincroniza se perder o stream
+          if (c == '$') {
+            synced = true;
+          }
+        }
+      }
+    }
+
+    udpNtrip();
+
+    // Check for RTK Radio
+    if (SerialRTK.available())
+    {
+        SerialGPS->write(SerialRTK.read());
+    }
+
+    // If both dual messages are ready, send to AgOpen
+    //Serial.print(dualReadyGGA);
+    //Serial.println(dualReadyRelPos);
+    //delay(10);
+    
+    // Se baseLineCheck=false, envia apenas com GGA. Se true, espera GGA+RelPos
+    bool readyToSend = false;
+    if (baseLineCheck) {
+        // Modo dual antenna - espera GGA + HPR/RelPos
+        readyToSend = (dualReadyGGA == true && dualReadyRelPos == true);
+    } else {
+        // Modo single antenna - só precisa de GGA
+        readyToSend = (dualReadyGGA == true);
+    }
+    
+    if (readyToSend)
+    {
+        imuHandler();
+        BuildNmea();
+        dualReadyGGA = false;
+        dualReadyRelPos = false;
+    }
+
+    //Read BNO
+    if((millis() - READ_BNO_TIME) > REPORT_INTERVAL && useBNO08x)
+    {
+      READ_BNO_TIME = millis();
+      readBNO();
+    }
+    
+    if (Autosteer_running) autosteerLoop();
+    else ReceiveUdp();
+    
+  if (!ETH.linkUp()) 
+  {
+    digitalWrite(Power_on_LED, 1);
+    digitalWrite(Ethernet_Active_LED, 0);
+  }
+  else
+  {
+    digitalWrite(Power_on_LED, 0);
+    digitalWrite(Ethernet_Active_LED, 1);
+  }
+}//End Loop
+//**************************************************************************
+
+bool calcChecksum()
+{
+  CK_A = 0;
+  CK_B = 0;
+
+  for (int i = 2; i < 70; i++)
+  {
+    CK_A = CK_A + ackPacket[i];
+    CK_B = CK_B + CK_A;
+  }
+
+  return (CK_A == ackPacket[70] && CK_B == ackPacket[71]);
+}
+
+//Given a message, calc and store the two byte "8-Bit Fletcher" checksum over the entirety of the message
+//This is called before we send a command message
+void calcChecksum(ubxPacket *msg)
+{
+  msg->checksumA = 0;
+  msg->checksumB = 0;
+
+  msg->checksumA += msg->cls;
+  msg->checksumB += msg->checksumA;
+
+  msg->checksumA += msg->id;
+  msg->checksumB += msg->checksumA;
+
+  msg->checksumA += (msg->len & 0xFF);
+  msg->checksumB += msg->checksumA;
+
+  msg->checksumA += (msg->len >> 8);
+  msg->checksumB += msg->checksumA;
+
+  for (uint16_t i = 0; i < msg->len; i++)
+  {
+    msg->checksumA += msg->payload[i];
+    msg->checksumB += msg->checksumA;
+  }
+}

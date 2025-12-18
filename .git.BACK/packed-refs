@@ -1,0 +1,9 @@
+# pack-refs with: peeled fully-peeled sorted 
+65c8c7b758d86c642587e0aeed6ed6a82f47d9bf refs/remotes/origin/Dual
+21b5a6e1593edd6ba53604ac52f66d4a3b883028 refs/remotes/origin/Dual-Autoconf
+eef5719a1b56f71b41450584bf6f42d390b7e6ba refs/remotes/origin/Dual-Autoconf-KeyaV2
+e11b884bb2fd99769f896dcd0816063f9a1ff32c refs/remotes/origin/KSXT
+34202a7bcf8ea643f05cf1860ec373b1e0680f41 refs/remotes/origin/KSXT_IMU
+31fe2a37ded3b254984e3159d0bb8a794da401a4 refs/remotes/origin/RVC
+641b1c36580e330c4cad201ab0742573dfd3f02a refs/remotes/origin/RVC2
+7ab01065bfd3ce34c46a20c5898ffae65b11b60e refs/remotes/origin/main
