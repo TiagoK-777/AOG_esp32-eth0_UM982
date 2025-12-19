@@ -145,7 +145,7 @@ void autosteerSetup()
 
   //set up communication - ESP32 I2C
   Wire.end();
-  Wire.begin(32, 33); // SDA=GPIO32, SCL=GPIO33 para WT32-ETH01
+  Wire.begin(33, 32); // SDA=GPIO33, SCL=GPIO32 para WT32-ETH01
     
   // Check ADC 
   if(adc.testConnection())

@@ -82,7 +82,7 @@ bool gotDollar = false;
 char msgBuf[254];
 int msgBufLen = 0;
 
-#define ImuWire Wire        //SCL=19:A5 SDA=18:A4
+#define ImuWire Wire        //Wire é inicializado em autosteerSetup(): SDA=GPIO32, SCL=GPIO33
 
 #define REPORT_INTERVAL 20    //BNO report time, we want to keep reading it quick & often. Its not timed to anything just give constant data.
 uint32_t READ_BNO_TIME = 0;   //Used stop BNO data pile up (This version is without resetting BNO everytime)
@@ -251,11 +251,13 @@ void setup()
   Serial.println("\r\nStarting BNO085...");
 
   // Initialize BNO085 if present.
+  // NOTA: Wire (ImuWire) já foi inicializado em autosteerSetup() com pinos GPIO32(SDA)/GPIO33(SCL)
+  // Não é possível reinicializar Wire com pinos diferentes no ESP32
 uint8_t error;
-ImuWire.begin(33, 32); //SDA=GPIO33 SCL=GPIO32
-ImuWire.setClock(100000); // Começa com 100kHz (mais lento)
+//ImuWire.begin(33, 32); //REMOVIDO - Wire já inicializado em autosteerSetup()
+ImuWire.setClock(100000); // Configura velocidade para 100kHz (mais lento para inicialização)
 
-delay(100); // Delay adicional após inicializar I²C
+delay(100); // Delay adicional para estabilizar I²C
 
 for (int16_t i = 0; i < nrBNO08xAdresses; i++)
 {
