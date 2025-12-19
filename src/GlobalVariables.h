@@ -181,19 +181,19 @@ extern HardwareSerial* SerialGPS;
 void EncoderFunc();  // May not be defined in all builds
 
 // LED Pin definitions from AOG_Teensy_UM982.cpp
-#define GGAReceivedLED 2          //ESP32 onboard LED (GPIO2)
+//#define GGAReceivedLED 2          //ESP32 onboard LED (GPIO2) - Commented to save ESP32 pins
 //#define Power_on_LED 14           //Red - Commented to save ESP32 pins
 //#define Ethernet_Active_LED 15    //Green - Commented to save ESP32 pins
-#define GPSRED_LED 12             //Red (Flashing = NO IMU or Dual, ON = GPS fix with IMU)
-#define GPSGREEN_LED 13           //Green (Flashing = Dual bad, ON = Dual good)
+//#define GPSRED_LED 12             //Red (Flashing = NO IMU or Dual, ON = GPS fix with IMU) - Commented to save ESP32 pins
+//#define GPSGREEN_LED 13           //Green (Flashing = Dual bad, ON = Dual good) - Commented to save ESP32 pins
 
 // Pin definitions from Autosteer.cpp (Motor and Switches)
-#define WORKSW_PIN 4
-#define STEERSW_PIN 16
+#define WORKSW_PIN 15
+#define STEERSW_PIN 14
 #define REMOTE_PIN 35
-#define DIR1_RL_ENABLE 26
-#define PWM1_LPWM 25
-#define PWM2_RPWM 27
+#define DIR1_RL_ENABLE 36
+#define PWM1_LPWM 4
+#define PWM2_RPWM 2
 //#define AUTOSTEER_ACTIVE_LED 33    //Commented to save ESP32 pins
 //#define AUTOSTEER_STANDBY_LED 32   //Commented to save ESP32 pins
 #define CURRENT_SENSOR_PIN 39

@@ -212,11 +212,11 @@ void setup()
 {
   delay(500);                         //Small delay so serial can monitor start up
 
-  pinMode(GGAReceivedLED, OUTPUT);
+  //pinMode(GGAReceivedLED, OUTPUT);         //Commented to save ESP32 pins
   //pinMode(Power_on_LED, OUTPUT);           //Commented to save ESP32 pins
   //pinMode(Ethernet_Active_LED, OUTPUT);    //Commented to save ESP32 pins
-  pinMode(GPSRED_LED, OUTPUT);
-  pinMode(GPSGREEN_LED, OUTPUT);
+  //pinMode(GPSRED_LED, OUTPUT);             //Commented to save ESP32 pins
+  //pinMode(GPSGREEN_LED, OUTPUT);           //Commented to save ESP32 pins
   //pinMode(AUTOSTEER_STANDBY_LED, OUTPUT);  //Commented to save ESP32 pins
   //pinMode(AUTOSTEER_ACTIVE_LED, OUTPUT);   //Commented to save ESP32 pins
 
@@ -398,15 +398,15 @@ void loop()
               msgBufLen = 0;
               if (blink)
               {
-                  digitalWrite(GGAReceivedLED, HIGH);
+                  //digitalWrite(GGAReceivedLED, HIGH);  //Commented to save ESP32 pins
               }
               else
               {
-                  digitalWrite(GGAReceivedLED, LOW);
+                  //digitalWrite(GGAReceivedLED, LOW);   //Commented to save ESP32 pins
               }
 
               blink = !blink;
-              digitalWrite(GPSGREEN_LED, HIGH);   //Turn green GPS LED ON
+              //digitalWrite(GPSGREEN_LED, HIGH);   //Turn green GPS LED ON - Commented to save ESP32 pins
           }
       }
       else

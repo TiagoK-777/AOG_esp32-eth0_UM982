@@ -78,11 +78,11 @@ void GGA_Handler() //Rec'd GGA
 
     if (blink)
     {
-        digitalWrite(GGAReceivedLED, HIGH);
+        //digitalWrite(GGAReceivedLED, HIGH);  //Commented to save ESP32 pins
     }
     else
     {
-        digitalWrite(GGAReceivedLED, LOW);
+        //digitalWrite(GGAReceivedLED, LOW);   //Commented to save ESP32 pins
     }
 
     blink = !blink;
@@ -106,7 +106,7 @@ void VTG_Handler()
 void HPR_Handler()
 { 
   dualReadyRelPos = true;
-  digitalWrite(GPSRED_LED, LOW);   //Turn red GPS LED OFF (we are now in dual mode so green LED)
+  //digitalWrite(GPSRED_LED, LOW);   //Turn red GPS LED OFF (we are now in dual mode so green LED) - Commented to save ESP32 pins
 
   // HPR Heading
   parser.getArg(1, umHeading);
@@ -122,7 +122,7 @@ void HPR_Handler()
   if ( parser.getArg(2, umRoll) )
   {
     rollDual = atof(umRoll);
-    digitalWrite(GPSGREEN_LED, HIGH);   //Turn green GPS LED ON
+    //digitalWrite(GPSGREEN_LED, HIGH);   //Turn green GPS LED ON - Commented to save ESP32 pins
     if ( filterRoll )
       {
         float tempRoll;
@@ -132,7 +132,7 @@ void HPR_Handler()
   }
   else
   {
-    digitalWrite(GPSGREEN_LED, blink);  //Flash the green GPS LED
+    //digitalWrite(GPSGREEN_LED, blink);  //Flash the green GPS LED - Commented to save ESP32 pins
   }
 
   // Solution quality factor
