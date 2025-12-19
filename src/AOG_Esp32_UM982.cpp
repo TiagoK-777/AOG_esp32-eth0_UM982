@@ -62,13 +62,11 @@ float headingMEA = 1;
 float headingEST = 1;
 float headingQ = 0.01;
 
-// Serial Ports - ESP32 WT32-ETH01
-#define SerialAOG Serial                //AgIO USB conection
-#define SerialRTK Serial1               //RTK radio (GPIO 4/RX, 2/TX)
-HardwareSerial* SerialGPS = &Serial2;   //Main postion receiver (GGA - GPIO 5/RX, 17/TX)
+// Serial Ports - ESP32 WT32-ETH01 (SerialAOG and SerialRTK defined in GlobalVariables.h)
+HardwareSerial* SerialGPS = &Serial2;   //Main position receiver (GGA - GPIO 5/RX, 17/TX)
 const int32_t baudAOG = 115200;         //USB connection speed
 const int32_t baudGPS = 115200;         //UM982 connection speed
-const int32_t baudRTK = 9600;         // most are using Xbee radios with default of 115200
+const int32_t baudRTK = 9600;           // most are using Xbee radios with default of 115200
 
 // Send data to AgIO via usb
 bool sendUSB = false;
@@ -85,19 +83,11 @@ char msgBuf[254];
 int msgBufLen = 0;
 
 #define ImuWire Wire        //SCL=19:A5 SDA=18:A4
-#define RAD_TO_DEG_X_10 572.95779513082320876798154814105
 
 #define REPORT_INTERVAL 20    //BNO report time, we want to keep reading it quick & often. Its not timed to anything just give constant data.
 uint32_t READ_BNO_TIME = 0;   //Used stop BNO data pile up (This version is without resetting BNO everytime)
 
-//Status LED's - ESP32 WT32-ETH01 GPIO
-#define GGAReceivedLED 2          //ESP32 onboard LED (GPIO2)
-#define Power_on_LED 14           //Red
-#define Ethernet_Active_LED 15    //Green  
-#define GPSRED_LED 12             //Red (Flashing = NO IMU or Dual, ON = GPS fix with IMU)
-#define GPSGREEN_LED 13           //Green (Flashing = Dual bad, ON = Dual good)
-#define AUTOSTEER_STANDBY_LED 32  //Red
-#define AUTOSTEER_ACTIVE_LED 33   //Green
+// LED pin definitions moved to GlobalVariables.h
 uint32_t gpsReadyTime = 0;        //Used for GGA timeout
 
 void errorHandler();
@@ -113,7 +103,10 @@ void readBNO();
 void autosteerLoop();
 void ReceiveUdp();
 
+// Global instances
 ConfigIP networkAddress;   //3 bytes
+Storage steerSettings;     // 11 bytes - Autosteer settings
+Setup steerConfig;         // 9 bytes - Autosteer configuration
 
 // IP & MAC address of this module of this module
 byte Eth_myip[4] = { 0, 0, 0, 0}; //This is now set via AgIO

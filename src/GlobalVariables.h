@@ -173,8 +173,9 @@ extern SimpleKalmanFilter headingFilter;
 // Moved to GlobalVariables.h: const bool invertRoll = true;
 extern HardwareSerial* SerialGPS;
 
-// Serial port defines
-#define SerialAOG Serial  // AgIO USB connection
+// Serial port defines moved from AOG_Esp32_UM982.cpp
+#define SerialAOG Serial                //AgIO USB connection
+#define SerialRTK Serial1               //RTK radio (GPIO 4/RX, 2/TX)
 
 // Function declarations for optional features
 void EncoderFunc();  // May not be defined in all builds
@@ -186,9 +187,27 @@ void EncoderFunc();  // May not be defined in all builds
 #define GPSRED_LED 12             //Red (Flashing = NO IMU or Dual, ON = GPS fix with IMU)
 #define GPSGREEN_LED 13           //Green (Flashing = Dual bad, ON = Dual good)
 
-// Pin definitions from Autosteer.cpp
+// Pin definitions from Autosteer.cpp (Motor and Switches)
 #define WORKSW_PIN 4
 #define STEERSW_PIN 16
+#define REMOTE_PIN 35
+#define DIR1_RL_ENABLE 26
+#define PWM1_LPWM 25
+#define PWM2_RPWM 27
+#define AUTOSTEER_ACTIVE_LED 33
+#define AUTOSTEER_STANDBY_LED 32
+#define CURRENT_SENSOR_PIN 39
+#define PRESSURE_SENSOR_PIN 36
+
+// Autosteer Configuration Constants
+#define LOW_HIGH_DEGREES 5.0
+#define LOOP_TIME 100
+#define WATCHDOG_THRESHOLD 100
+#define WATCHDOG_FORCE_VALUE 10
+#define PWM_Frequency 0
+#define EEP_Ident 2400
+#define CONST_180_DIVIDED_BY_PI 57.2957795130823
+
 extern uint8_t autoSteerUdpData[1460];
 extern uint32_t autsteerLastTime;
 extern uint32_t currentTime;
@@ -236,19 +255,5 @@ extern uint8_t thisEnc;
 extern uint8_t lastEnc;
 extern Storage steerSettings;
 extern Setup steerConfig;
-
-// Pin definitions from Autosteer.cpp
-#define WORKSW_PIN 4
-#define STEERSW_PIN 16
-#define REMOTE_PIN 35
-#define DIR1_RL_ENABLE 26
-#define PWM1_LPWM 25
-#define PWM2_RPWM 27
-#define AUTOSTEER_ACTIVE_LED 33
-#define AUTOSTEER_STANDBY_LED 32
-#define LOW_HIGH_DEGREES 5.0
-#define LOOP_TIME 100
-#define WATCHDOG_FORCE_VALUE 10
-#define PWM_Frequency 0
 
 #endif // GLOBALVARIABLES_H

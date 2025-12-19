@@ -11,31 +11,12 @@
 
 ////////////////// User Settings /////////////////////////
 
-// Moved to GlobalVariables.h
-// #define LOW_HIGH_DEGREES 3.0
-// #define PWM_Frequency 0
-// #define DIR1_RL_ENABLE  25
-// #define PWM1_LPWM  26
-// #define PWM2_RPWM  27
-// #define STEERSW_PIN 34
-// #define WORKSW_PIN 35
-// #define REMOTE_PIN 36
-// #define LOOP_TIME 25
-// #define WATCHDOG_FORCE_VALUE xxx
+// All settings moved to GlobalVariables.h
 
 /////////////////////////////////////////////
 
-// if not in eeprom, overwrite
-#define EEP_Ident 2400
-
-//   ***********  Motor drive connections  **************888
+// Motor drive connections and sensor pins moved to GlobalVariables.h
 //Connect ground only for cytron, Connect Ground and +5v for IBT2
-
-//Define sensor pin for current or pressure sensor
-#define CURRENT_SENSOR_PIN 39
-#define PRESSURE_SENSOR_PIN 36
-
-#define CONST_180_DIVIDED_BY_PI 57.2957795130823
 
 #include <Wire.h>
 #include <EEPROM.h>
@@ -51,12 +32,11 @@ ADS1115_lite adc(ADS1115_DEFAULT_ADDRESS);     // Use this for the 16-bit versio
 uint8_t autoSteerUdpData[1460];  // Buffer For Receiving UDP Data (ESP32 max UDP)
 
 //loop time variables in microseconds
-// Moved to GlobalVariables.h: const uint16_t LOOP_TIME = 25;
+// All timing constants moved to GlobalVariables.h
 uint32_t autsteerLastTime = LOOP_TIME;
 uint32_t currentTime = LOOP_TIME;
 
-const uint16_t WATCHDOG_THRESHOLD = 100;
-// Moved to GlobalVariables.h: const uint16_t WATCHDOG_FORCE_VALUE = WATCHDOG_THRESHOLD + 2;
+// Watchdog timer
 uint8_t watchdogTimer = WATCHDOG_FORCE_VALUE;
 
 //Heart beat hello AgIO
@@ -116,8 +96,7 @@ uint8_t thisEnc = 0, lastEnc = 0;
 
 //Variables for settings - moved struct definitions to GlobalVariables.h
 // Storage struct and Setup struct are defined in GlobalVariables.h
-Storage steerSettings;      // 11 bytes
-Setup steerConfig;          // 9 bytes
+// steerSettings and steerConfig are defined in AOG_Esp32_UM982.cpp
 
 void steerConfigInit()
 {
