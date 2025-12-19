@@ -213,12 +213,12 @@ void setup()
   delay(500);                         //Small delay so serial can monitor start up
 
   pinMode(GGAReceivedLED, OUTPUT);
-  pinMode(Power_on_LED, OUTPUT);
-  pinMode(Ethernet_Active_LED, OUTPUT);
+  //pinMode(Power_on_LED, OUTPUT);           //Commented to save ESP32 pins
+  //pinMode(Ethernet_Active_LED, OUTPUT);    //Commented to save ESP32 pins
   pinMode(GPSRED_LED, OUTPUT);
   pinMode(GPSGREEN_LED, OUTPUT);
-  pinMode(AUTOSTEER_STANDBY_LED, OUTPUT);
-  pinMode(AUTOSTEER_ACTIVE_LED, OUTPUT);
+  //pinMode(AUTOSTEER_STANDBY_LED, OUTPUT);  //Commented to save ESP32 pins
+  //pinMode(AUTOSTEER_ACTIVE_LED, OUTPUT);   //Commented to save ESP32 pins
 
   // the dash means wildcard
  
@@ -465,13 +465,13 @@ void loop()
     
   if (!ETH.linkUp()) 
   {
-    digitalWrite(Power_on_LED, 1);
-    digitalWrite(Ethernet_Active_LED, 0);
+    //digitalWrite(Power_on_LED, 1);           //Commented to save ESP32 pins
+    //digitalWrite(Ethernet_Active_LED, 0);    //Commented to save ESP32 pins
   }
   else
   {
-    digitalWrite(Power_on_LED, 0);
-    digitalWrite(Ethernet_Active_LED, 1);
+    //digitalWrite(Power_on_LED, 0);           //Commented to save ESP32 pins
+    //digitalWrite(Ethernet_Active_LED, 1);    //Commented to save ESP32 pins
   }
 }//End Loop
 //**************************************************************************

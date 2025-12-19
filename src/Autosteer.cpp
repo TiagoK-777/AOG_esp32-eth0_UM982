@@ -186,8 +186,8 @@ void autosteerSetup()
   {
     Serial.println("Autosteer running, waiting for AgOpenGPS");
     // Autosteer Led goes Red if ADS1115 is found
-    digitalWrite(AUTOSTEER_ACTIVE_LED, 0);
-    digitalWrite(AUTOSTEER_STANDBY_LED, 1);
+    //digitalWrite(AUTOSTEER_ACTIVE_LED, 0);   //Commented to save ESP32 pins
+    //digitalWrite(AUTOSTEER_STANDBY_LED, 1);  //Commented to save ESP32 pins
   }
   else
   {
@@ -376,8 +376,8 @@ void autosteerLoop()
       motorDrive();       //out to motors the pwm value
       // Autosteer Led goes GREEN if autosteering
 
-      digitalWrite(AUTOSTEER_ACTIVE_LED, 1);
-      digitalWrite(AUTOSTEER_STANDBY_LED, 0);
+      //digitalWrite(AUTOSTEER_ACTIVE_LED, 1);   //Commented to save ESP32 pins
+      //digitalWrite(AUTOSTEER_STANDBY_LED, 0);  //Commented to save ESP32 pins
     }
     else
     {
@@ -400,8 +400,8 @@ void autosteerLoop()
       motorDrive(); //out to motors the pwm value
       pulseCount = 0;
       // Autosteer Led goes back to RED when autosteering is stopped
-      digitalWrite (AUTOSTEER_STANDBY_LED, 1);
-      digitalWrite (AUTOSTEER_ACTIVE_LED, 0);
+      //digitalWrite (AUTOSTEER_STANDBY_LED, 1);  //Commented to save ESP32 pins
+      //digitalWrite (AUTOSTEER_ACTIVE_LED, 0);   //Commented to save ESP32 pins
     }
   } //end of timed loop
 

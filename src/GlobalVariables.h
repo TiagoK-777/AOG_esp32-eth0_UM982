@@ -182,8 +182,8 @@ void EncoderFunc();  // May not be defined in all builds
 
 // LED Pin definitions from AOG_Teensy_UM982.cpp
 #define GGAReceivedLED 2          //ESP32 onboard LED (GPIO2)
-#define Power_on_LED 14           //Red
-#define Ethernet_Active_LED 15    //Green  
+//#define Power_on_LED 14           //Red - Commented to save ESP32 pins
+//#define Ethernet_Active_LED 15    //Green - Commented to save ESP32 pins
 #define GPSRED_LED 12             //Red (Flashing = NO IMU or Dual, ON = GPS fix with IMU)
 #define GPSGREEN_LED 13           //Green (Flashing = Dual bad, ON = Dual good)
 
@@ -194,8 +194,8 @@ void EncoderFunc();  // May not be defined in all builds
 #define DIR1_RL_ENABLE 26
 #define PWM1_LPWM 25
 #define PWM2_RPWM 27
-#define AUTOSTEER_ACTIVE_LED 33
-#define AUTOSTEER_STANDBY_LED 32
+//#define AUTOSTEER_ACTIVE_LED 33    //Commented to save ESP32 pins
+//#define AUTOSTEER_STANDBY_LED 32   //Commented to save ESP32 pins
 #define CURRENT_SENSOR_PIN 39
 #define PRESSURE_SENSOR_PIN 36
 
