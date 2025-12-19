@@ -197,7 +197,7 @@ void EncoderFunc();  // May not be defined in all builds
 //#define AUTOSTEER_ACTIVE_LED 33    //Commented to save ESP32 pins
 //#define AUTOSTEER_STANDBY_LED 32   //Commented to save ESP32 pins
 #define CURRENT_SENSOR_PIN 39
-#define PRESSURE_SENSOR_PIN 36
+//#define PRESSURE_SENSOR_PIN 36     //Removed - not used, only current sensor
 
 // Autosteer Configuration Constants
 #define LOW_HIGH_DEGREES 5.0

@@ -271,7 +271,8 @@ void autosteerLoop()
       previous = 0;
     }
 
-    // Pressure sensor?
+    // Pressure sensor - REMOVED: Not used, only current sensor
+    /*
     if (steerConfig.PressureSensor)
     {
       sensorSample = (float)analogRead(PRESSURE_SENSOR_PIN);
@@ -284,6 +285,7 @@ void autosteerLoop()
           previous = 0;
       }
     }
+    */
 
     // Current sensor?
     if (steerConfig.CurrentSensor)
@@ -540,7 +542,8 @@ void ReceiveUdp()
                 SendUdp(PGN_253, sizeof(PGN_253), Eth_ipDestination, portDestination);
 
                 //Steer Data 2 -------------------------------------------------
-                if (steerConfig.PressureSensor || steerConfig.CurrentSensor)
+                //if (steerConfig.PressureSensor || steerConfig.CurrentSensor)  //REMOVED PressureSensor
+                if (steerConfig.CurrentSensor)
                 {
                     if (aog2Count++ > 2)
                     {
@@ -622,7 +625,7 @@ void ReceiveUdp()
                 sett = autoSteerUdpData[8]; //setting1 - Danfoss valve etc
 
                 if (bitRead(sett, 0)) steerConfig.IsDanfoss = 1; else steerConfig.IsDanfoss = 0;
-                if (bitRead(sett, 1)) steerConfig.PressureSensor = 1; else steerConfig.PressureSensor = 0;
+                //if (bitRead(sett, 1)) steerConfig.PressureSensor = 1; else steerConfig.PressureSensor = 0;  //REMOVED - not used
                 if (bitRead(sett, 2)) steerConfig.CurrentSensor = 1; else steerConfig.CurrentSensor = 0;
                 if (bitRead(sett, 3)) steerConfig.IsUseY_Axis = 1; else steerConfig.IsUseY_Axis = 0;
 
