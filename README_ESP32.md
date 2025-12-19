@@ -8,10 +8,10 @@ Firmware portado com sucesso do Teensy 4.1 para ESP32 WT32-ETH01.
 
 - **Hardware:** ESP32 WT32-ETH01 com Ethernet LAN8720
 - **Comunicação:** UDP via RJ45 (porta Ethernet)
-- **GPS:** UM982 via UART (Serial2)
-- **RTK:** Rádio correção via UART (Serial1)
-- **IMU:** BNO08x via I2C
-- **ADC:** ADS1115 16-bit via I2C
+- **GPS:** UM982 via UART (Serial2) @ 115200 baud
+- **RTK:** Rádio correção via UART (Serial1) @ 9600 baud
+- **IMU:** BNO08x via I2C (GPIO33 SDA, GPIO32 SCL)
+- **ADC:** ADS1115 16-bit via I2C (GPIO32 SDA, GPIO33 SCL)
 - **Controle:** Motor Cytron/IBT2 via PWM (LEDC)
 
 ## Pinout WT32-ETH01
@@ -26,40 +26,29 @@ Firmware portado com sucesso do Teensy 4.1 para ESP32 WT32-ETH01.
 | Periférico | RX | TX | Velocidade |
 |------------|----|----|------------|
 | USB (AgIO) | 3 | 1 | 115200 |
-| GPS UM982  | 5 | 17 | 460800 |
+| GPS UM982  | 5 | 17 | 115200 |
 | RTK Radio  | 4 | 2 | 9600 |
 
 ### I2C
-- SDA: GPIO32
-- SCL: GPIO33
+- SDA: GPIO33
+- SCL: GPIO32
 - Dispositivos: BNO08x IMU, ADS1115 ADC
-
-### LEDs Status
-| LED | GPIO | Função |
-|-----|------|--------|
-| GGA Received | 2 | LED onboard |
-| Power On (Red) | 14 | Energia |
-| Ethernet Active (Green) | 15 | Ethernet conectado |
-| GPS Red | 12 | GPS status |
-| GPS Green | 13 | Dual antenna status |
-| Autosteer Standby (Red) | 32 | Autosteer em espera |
-| Autosteer Active (Green) | 33 | Autosteer ativo |
 
 ### Motor & Controle
 | Função | GPIO | Descrição |
 |--------|------|-----------|
-| DIR1_RL_ENABLE | 25 | Direção motor |
-| PWM1_LPWM | 26 | PWM esquerda (LEDC canal 0) |
-| PWM2_RPWM | 27 | PWM direita (LEDC canal 1) |
+| DIR1_RL_ENABLE | 14 | Direção motor |
+| PWM1_LPWM | 4 | PWM esquerda (LEDC canal 0) |
+| PWM2_RPWM | 2 | PWM direita (LEDC canal 1) |
 
 ### Switches/Sensores
 | Função | GPIO | Descrição |
 |--------|------|-----------|
-| STEERSW_PIN | 34 | Switch autosteer |
-| WORKSW_PIN | 35 | Switch trabalho |
-| REMOTE_PIN | 36 | Remote |
-| CURRENT_SENSOR | 39 | Sensor corrente motor |
-| PRESSURE_SENSOR | 36 | Sensor pressão |
+| STEERSW_PIN | 36 | Switch autosteer (Input Only - Pull-up 10k) |
+| WORKSW_PIN | 15 | Switch trabalho |
+| REMOTE_PIN | 39 | Remote (Input Only - Pull-up 10k) |
+| CURRENT_SENSOR_PIN | 35 | Sensor corrente motor |
+| PRESSURE_SENSOR | 36 | Sensor pressão (não usado) |
 
 ## Configuração de Rede
 
@@ -107,9 +96,9 @@ Binários em: `.pio\build\wt32-eth01\`
 1. **Conectar hardware:**
    - GPS UM982 em RX=5, TX=17
    - Rádio RTK em RX=4, TX=2
-   - IMU BNO08x em SDA=32, SCL=33
-   - ADC ADS1115 em SDA=32, SCL=33
-   - Motor em GPIO 25, 26, 27
+   - IMU BNO08x em SDA=33, SCL=32
+   - ADC ADS1115 em SDA=33, SCL=32
+   - Motor em GPIO 14 (DIR), GPIO4 (PWM1), GPIO2 (PWM2)
    - Cabo Ethernet
 
 2. **Ligar módulo** — LED verde Ethernet deve acender
@@ -162,13 +151,13 @@ Se usar dual antenna UM982:
 - Monitor serial: deve aparecer dados RTK
 
 ### Motor não responde
-- Verificar conexões GPIO 25, 26, 27
+- Verificar conexões GPIO 14 (DIR), GPIO4 (PWM1), GPIO2 (PWM2)
 - Testar PWM: Monitor serial mostra pwmDisplay
 - Ajustar settings: lowPWM, highPWM, minPWM
 
 ### IMU não detectado
 - I2C scan: código mostra "BNO08X Ok" ou "not Found"
-- Verificar SDA=32, SCL=33
+- Verificar SDA=33, SCL=32
 - Endereço padrão: 0x4A ou 0x4B
 
 ### Reset constante
@@ -249,6 +238,6 @@ Para problemas específicos ao ESP32:
 
 ---
 
-**Versão:** 1.0 - ESP32 Port  
-**Data:** Novembro 2025  
+**Versão:** 1.1 - Pinagem Corrigida  
+**Data:** Dezembro 2025  
 **Licença:** GPL v3

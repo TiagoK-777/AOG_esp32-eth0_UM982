@@ -189,14 +189,14 @@ void EncoderFunc();  // May not be defined in all builds
 
 // Pin definitions from Autosteer.cpp (Motor and Switches)
 #define WORKSW_PIN 15
-#define STEERSW_PIN 14
-#define REMOTE_PIN 35
-#define DIR1_RL_ENABLE 36
+#define STEERSW_PIN 36               // (Input Only - Requer Resistor Pull-up Externo 10k)
+#define REMOTE_PIN 39                // (Input Only - Requer Resistor Pull-up Externo 10k)
+#define DIR1_RL_ENABLE 14
 #define PWM1_LPWM 4
 #define PWM2_RPWM 2
 //#define AUTOSTEER_ACTIVE_LED 33    //Commented to save ESP32 pins
 //#define AUTOSTEER_STANDBY_LED 32   //Commented to save ESP32 pins
-#define CURRENT_SENSOR_PIN 39
+#define CURRENT_SENSOR_PIN 35        //Analog pin for current sensor
 //#define PRESSURE_SENSOR_PIN 36     //Removed - not used, only current sensor
 
 // Autosteer Configuration Constants
