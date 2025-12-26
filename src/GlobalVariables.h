@@ -115,7 +115,7 @@ extern byte CK_A;
 extern byte CK_B;
 extern int relposnedByteCount;
 extern uint32_t speedPulseUpdateTimer;
-extern byte velocityPWM_Pin;
+//extern byte velocityPWM_Pin;
 extern bool dualReadyGGA;
 extern bool dualReadyRelPos;
 extern bool useBNO08x;

@@ -411,6 +411,7 @@ void autosteerLoop()
   //delay(1);
 
   // Speed pulse
+  /*
   if (gpsSpeedUpdateTimer < 1000)
   {
       if (speedPulseUpdateTimer > 200) // 100 (10hz) seems to cause tone lock ups occasionally
@@ -435,6 +436,7 @@ void autosteerLoop()
   {
       noTone(velocityPWM_Pin);
   }
+  */
 
   if (encEnable)
   {

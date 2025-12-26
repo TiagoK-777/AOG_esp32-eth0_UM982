@@ -131,7 +131,7 @@ int relposnedByteCount = 0;
 
 //Speed pulse output
 uint32_t speedPulseUpdateTimer = 0;
-byte velocityPWM_Pin = 36;      // Velocity (MPH speed) PWM pin
+//byte velocityPWM_Pin = 36;      // Velocity (MPH speed) PWM pin
 
 bool dualReadyGGA = false;
 bool dualReadyRelPos = false;
