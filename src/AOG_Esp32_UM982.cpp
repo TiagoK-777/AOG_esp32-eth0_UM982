@@ -65,7 +65,7 @@ float headingQ = 0.01;
 // Serial Ports - ESP32 WT32-ETH01 (SerialAOG and SerialRTK defined in GlobalVariables.h)
 HardwareSerial* SerialGPS = &Serial2;   //Main position receiver (GGA - GPIO 5/RX, 17/TX)
 const int32_t baudAOG = 115200;         //USB connection speed
-const int32_t baudGPS = 115200;         //UM982 connection speed
+const int32_t baudGPS = 460800;         //UM982 connection speed
 const int32_t baudRTK = 9600;           // most are using Xbee radios with default of 115200
 
 // Send data to AgIO via usb
