@@ -203,7 +203,7 @@ void EncoderFunc();  // May not be defined in all builds
 #define LOW_HIGH_DEGREES 5.0
 #define LOOP_TIME 100
 #define WATCHDOG_THRESHOLD 100
-#define WATCHDOG_FORCE_VALUE 10
+#define WATCHDOG_FORCE_VALUE 200
 #define PWM_Frequency 0
 #define EEP_Ident 2400
 #define CONST_180_DIVIDED_BY_PI 57.2957795130823

@@ -142,6 +142,11 @@ void autosteerSetup()
   // Attach pins to LEDC channels
   ledcAttachPin(PWM1_LPWM, 0);
   ledcAttachPin(PWM2_RPWM, 1);
+  
+  // Ensure motors are off at startup
+  ledcWrite(0, 0);
+  ledcWrite(1, 0);
+  digitalWrite(DIR1_RL_ENABLE, LOW);
 
   //set up communication - ESP32 I2C
   Wire.end();
@@ -360,16 +365,10 @@ void autosteerLoop()
       //Enable H Bridge for IBT2, hyd aux, etc for cytron
       if (steerConfig.CytronDriver)
       {
-        if (steerConfig.IsRelayActiveHigh)
-        {
-          digitalWrite(PWM2_RPWM, 0);
-        }
-        else
-        {
-          digitalWrite(PWM2_RPWM, 1);
-        }
+        // Cytron MD30C: Controle via DIR1_RL_ENABLE e PWM1_LPWM apenas
+        // Não precisa controlar PWM2_RPWM
       }
-      else digitalWrite(DIR1_RL_ENABLE, 1);
+      else digitalWrite(DIR1_RL_ENABLE, 1); //IBT2 enable
 
       steerAngleError = steerAngleActual - steerAngleSetPoint;   //calculate the steering error
       //if (abs(steerAngleError)< steerSettings.lowPWM) steerAngleError = 0;
@@ -385,21 +384,25 @@ void autosteerLoop()
     {
       //we've lost the comm to AgOpenGPS, or just stop request
       //Disable H Bridge for IBT2, hyd aux, etc for cytron
+      
+      pwmDrive = 0; //turn off steering motor FIRST
+      pwmDisplay = 0;
+      
       if (steerConfig.CytronDriver)
       {
-        if (steerConfig.IsRelayActiveHigh)
-        {
-          digitalWrite(PWM2_RPWM, 1);
-        }
-        else
-        {
-          digitalWrite(PWM2_RPWM, 0);
-        }
+        // Cytron: Zera o PWM via LEDC e coloca DIR em LOW
+        digitalWrite(DIR1_RL_ENABLE, LOW); // Direção em LOW como segurança
+        ledcWrite(0, 0);  // Desliga PWM no canal 0 (PWM1_LPWM)
+        ledcWrite(1, 0);  // Desliga canal 1 também por segurança
       }
-      else digitalWrite(DIR1_RL_ENABLE, 0); //IBT2
-
-      pwmDrive = 0; //turn off steering motor
-      motorDrive(); //out to motors the pwm value
+      else 
+      {
+        // IBT2: Desliga enable e zera ambos canais PWM
+        digitalWrite(DIR1_RL_ENABLE, 0); //IBT2 disable
+        ledcWrite(0, 0);  // Desliga PWM Left
+        ledcWrite(1, 0);  // Desliga PWM Right
+      }
+      
       pulseCount = 0;
       // Autosteer Led goes back to RED when autosteering is stopped
       //digitalWrite (AUTOSTEER_STANDBY_LED, 1);  //Commented to save ESP32 pins
