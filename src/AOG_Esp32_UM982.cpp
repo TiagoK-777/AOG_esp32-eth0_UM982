@@ -238,7 +238,7 @@ void setup()
   //SerialGPS->setRxBufferSize(serial_buffer_size); // ESP32 buffer config
 
   delay(10);
-  SerialRTK.begin(baudRTK, SERIAL_8N1, 4, 2); // RX=GPIO4, TX=GPIO2
+  //SerialRTK.begin(baudRTK, SERIAL_8N1, 4, 2); // RX=GPIO4, TX=GPIO2
 
   Serial.println("SerialAOG, SerialRTK, SerialGPS initialized");
 
@@ -427,10 +427,12 @@ void loop()
     udpNtrip();
 
     // Check for RTK Radio
+    /*
     if (SerialRTK.available())
     {
         SerialGPS->write(SerialRTK.read());
     }
+    */
 
     // If both dual messages are ready, send to AgOpen
     //Serial.print(dualReadyGGA);
