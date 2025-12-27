@@ -193,7 +193,7 @@ void EncoderFunc();  // May not be defined in all builds
 #define REMOTE_PIN 39                // (Input Only - Requer Resistor Pull-up Externo 10k)
 #define DIR1_RL_ENABLE 14
 #define PWM1_LPWM 4
-#define PWM2_RPWM 2
+#define PWM2_RPWM 12
 //#define AUTOSTEER_ACTIVE_LED 33    //Commented to save ESP32 pins
 //#define AUTOSTEER_STANDBY_LED 32   //Commented to save ESP32 pins
 #define CURRENT_SENSOR_PIN 35        //Analog pin for current sensor
