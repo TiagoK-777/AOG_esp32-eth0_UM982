@@ -159,74 +159,155 @@ void HPR_Handler()
 
 void readBNO()
 {
-          if (bno08x.dataAvailable() == true)
+    // BNO085 UART-RVC Protocol Parser
+    // RVC packet format (19 bytes):
+    // [0-1]: Header 0xAA 0xAA
+    // [2]: Index (increments 0-255)
+    // [3-4]: Yaw (int16, little-endian, 0.01° resolution)
+    // [5-6]: Pitch (int16, little-endian, 0.01° resolution)
+    // [7-8]: Roll (int16, little-endian, 0.01° resolution)
+    // [9-10]: Accel X (int16, little-endian, 0.001g resolution)
+    // [11-12]: Accel Y (int16, little-endian, 0.001g resolution)
+    // [13-14]: Accel Z (int16, little-endian, 0.001g resolution)
+    // [15-17]: Reserved
+    // [18]: Checksum (Sum of bytes 2-17)
+    
+    static uint8_t rvcBuffer[RVC_PACKET_SIZE];
+    static uint8_t bufferIndex = 0;
+    static enum {SYNC1, SYNC2, READ_DATA, VALIDATE} state = SYNC1;
+    static uint32_t checksumErrors = 0;
+    
+    // Process all available bytes
+    while(SerialRVC.available() > 0)
+    {
+        uint8_t inByte = SerialRVC.read();
+        
+        switch(state)
         {
-            float dqx, dqy, dqz, dqw, dacr;
-            uint8_t dac;
-
-            //get quaternion
-            bno08x.getQuat(dqx, dqy, dqz, dqw, dacr, dac);
-/*            
-            while (bno08x.dataAvailable() == true)
+            case SYNC1:
+                if(inByte == RVC_HEADER) {
+                    rvcBuffer[0] = inByte;
+                    state = SYNC2;
+                }
+                break;
+                
+            case SYNC2:
+                if(inByte == RVC_HEADER) {
+                    rvcBuffer[1] = inByte;
+                    bufferIndex = 2;
+                    state = READ_DATA;
+                } else {
+                    // Not a valid header - restart
+                    state = SYNC1;
+                }
+                break;
+                
+            case READ_DATA:
+                rvcBuffer[bufferIndex++] = inByte;
+                if(bufferIndex >= RVC_PACKET_SIZE) {
+                    state = VALIDATE;
+                }
+                break;
+                
+            case VALIDATE:
             {
-                //get quaternion
-                bno08x.getQuat(dqx, dqy, dqz, dqw, dacr, dac);
-                //Serial.println("Whiling");
-                //Serial.print(dqx, 4);
-                //Serial.print(F(","));
-                //Serial.print(dqy, 4);
-                //Serial.print(F(","));
-                //Serial.print(dqz, 4);
-                //Serial.print(F(","));
-                //Serial.println(dqw, 4);
-            }
-            //Serial.println("End of while");
-*/            
-            float norm = sqrt(dqw * dqw + dqx * dqx + dqy * dqy + dqz * dqz);
-            dqw = dqw / norm;
-            dqx = dqx / norm;
-            dqy = dqy / norm;
-            dqz = dqz / norm;
+                // Validate checksum (Sum of bytes 2-17)
+                uint8_t checksum = 0;
+                for(int i = 2; i < 18; i++) {
+                    checksum += rvcBuffer[i];
+                }
+                
+                if(checksum == rvcBuffer[18])
+                {
+                    // Extract data (int16, little-endian)
+                    // Byte 2 is Index, data starts at Byte 3
+                    int16_t rvcYaw = (int16_t)(rvcBuffer[3] | (rvcBuffer[4] << 8));
+                    int16_t rvcPitch = (int16_t)(rvcBuffer[5] | (rvcBuffer[6] << 8));
+                    int16_t rvcRoll = (int16_t)(rvcBuffer[7] | (rvcBuffer[8] << 8));
+                    
+                    // Convert from 0.01° to degrees
+                    double tempYaw = rvcYaw;    // In 0.01°
+                    double tempPitch = rvcPitch;
+                    double tempRoll = rvcRoll;
+                    
+                    // Apply axis swap if configured (IsUseY_Axis swaps pitch/roll)
+                    if(steerConfig.IsUseY_Axis)
+                    {
+                        roll = tempPitch;   // Pitch becomes Roll
+                        pitch = tempRoll;   // Roll becomes Pitch
+                    }
+                    else
+                    {
+                        pitch = tempPitch;
+                        roll = tempRoll;
+                    }
+                    
+                    // Apply roll inversion if configured
+                    if(invertRoll)
+                    {
+                        roll *= -1;
+                    }
+                    
+                    // Process Yaw (heading)
+                    // RVC yaw is in 0.01° resolution
+                    // correctionHeading needs radians, yaw needs 0.1° (tenths)
+                    
+                    // Convert to radians for correctionHeading (used in fusion)
+                    correctionHeading = -(tempYaw / 100.0) * (PI / 180.0);  // 0.01° to radians, negated
+                    
+                    // Convert yaw to 0.1° resolution (tenths of degree) for imuHandler
+                    yaw = (int16_t)(tempYaw / 10.0);  // 0.01° to 0.1°
+                    if(yaw < 0) yaw += 3600;
+                    if(yaw >= 3600) yaw -= 3600;
+                    
+                    // Pitch and Roll: convert from 0.01° to 0.1° (divide by 10)
+                    // imuHandler expects values in 0.1° (tenths of degree)
+                    pitch = pitch / 10.0;  // 0.01° to 0.1°
+                    roll = roll / 10.0;    // 0.01° to 0.1°
+                    
+                    // RVC doesn't provide gyro rate
+                    gyroZ = 0;
+                    
+                    // Update watchdog
+                    lastRvcTime = millis();
+                    rvcPacketCount++;
 
-            float ysqr = dqy * dqy;
-
-            // yaw (z-axis rotation)
-            float t3 = +2.0 * (dqw * dqz + dqx * dqy);
-            float t4 = +1.0 - 2.0 * (ysqr + dqz * dqz);
-            yaw = atan2(t3, t4);
-
-            // Convert yaw to degrees x10
-            correctionHeading = -yaw;
-            yaw = (int16_t)((yaw * -RAD_TO_DEG_X_10));
-            if (yaw < 0) yaw += 3600;
-
-            // pitch (y-axis rotation)
-            float t2 = +2.0 * (dqw * dqy - dqz * dqx);
-            t2 = t2 > 1.0 ? 1.0 : t2;
-            t2 = t2 < -1.0 ? -1.0 : t2;
-//            pitch = asin(t2) * RAD_TO_DEG_X_10;
-
-            // roll (x-axis rotation)
-            float t0 = +2.0 * (dqw * dqx + dqy * dqz);
-            float t1 = +1.0 - 2.0 * (dqx * dqx + ysqr);
-//            roll = atan2(t0, t1) * RAD_TO_DEG_X_10;
-
-            if(steerConfig.IsUseY_Axis)
-            {
-              roll = asin(t2) * RAD_TO_DEG_X_10;
-              pitch = atan2(t0, t1) * RAD_TO_DEG_X_10;
-            }
-            else
-            {
-              pitch = asin(t2) * RAD_TO_DEG_X_10;
-              roll = atan2(t0, t1) * RAD_TO_DEG_X_10;
-            }
-            
-            if(invertRoll)
-            {
-              roll *= -1;
+                    // Debug print (every 100ms) - show values as sent to AgOpenGPS
+                    // static uint32_t lastPrintTime = 0;
+                    // if (millis() - lastPrintTime > 100) {
+                    //     lastPrintTime = millis();
+                    //     Serial.print("RVC -> Yaw: "); Serial.print(yaw / 10.0);  // Show in degrees
+                    //     Serial.print("° Pitch: "); Serial.print(pitch / 10.0);   // Show in degrees
+                    //     Serial.print("° Roll: "); Serial.print(roll / 10.0);     // Show in degrees
+                    //     Serial.print("° Idx: "); Serial.println(rvcBuffer[2]);
+                    // }
+                }
+                else
+                {
+                    // Checksum failed
+                    checksumErrors++;
+                    
+                    if(checksumErrors % 100 == 0) {
+                        Serial.print("RVC checksum errors: ");
+                        Serial.println(checksumErrors);
+                    }
+                    
+                    // Check if this byte could be start of next packet
+                    if(inByte == RVC_HEADER) {
+                        rvcBuffer[0] = inByte;
+                        state = SYNC2;
+                        bufferIndex = 0;
+                        break;
+                    }
+                }
+                
+                // Reset state machine
+                state = SYNC1;
+                bufferIndex = 0;
+                break;
             }
         }
+    }
 }
 
 void imuHandler()
@@ -248,11 +329,28 @@ void imuHandler()
       temp = (int16_t)roll;
       itoa(temp, imuRoll, 10);
 
-      // YawRate - optional gyroscope reading
+      // Debug: show what's being sent to AgOpenGPS
+      // static uint32_t lastImuPrint = 0;
+      // static uint32_t imuCount = 0;
+      // static uint32_t lastRateCalc = 0;
+      // 
+      // imuCount++;
+      // if (millis() - lastRateCalc >= 1000) {
+      //     Serial.print("NMEA rate: "); Serial.print(imuCount); Serial.println(" Hz");
+      //     imuCount = 0;
+      //     lastRateCalc = millis();
+      // }
+      // 
+      // if (millis() - lastImuPrint > 500) {
+      //     lastImuPrint = millis();
+      //     Serial.print("NMEA -> H:"); Serial.print(imuHeading);
+      //     Serial.print(" P:"); Serial.print(imuPitch);
+      //     Serial.print(" R:"); Serial.println(imuRoll);
+      // }
+
+      // YawRate - not available in RVC mode
       if (useYawRate) {
-          // Get gyro Z axis (yaw rate) in degrees/second
-          float gyroZ = bno08x.getGyroZ();  // rad/s
-          gyroZ = gyroZ * 57.2958;  // convert to deg/s
+          // RVC mode doesn't provide gyro rate, use global gyroZ (always 0)
           temp = (int16_t)gyroZ;
           itoa(temp, imuYawRate, 10);
       } else {
@@ -433,6 +531,13 @@ void BuildNmea(void)
     CalculateChecksum();
 
     strcat(nmea, "\r\n");
+    
+    // Debug: Print complete NMEA sentence occasionally
+    // static uint32_t nmeaCount = 0;
+    // if (++nmeaCount % 10 == 0) {  // Print every 10th NMEA
+    //     Serial.print("NMEA: ");
+    //     Serial.println(nmea);
+    // }
 
     if (sendUSB) { SerialAOG.write(nmea); } // Send USB GPS data if enabled in user settings
     

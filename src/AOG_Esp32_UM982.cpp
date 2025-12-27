@@ -11,7 +11,7 @@ Forked from https://github.com/AgHardware/Boards/blob/main/TeensyModules/AIO%20S
 #include "GlobalVariables.h"
 #include "zNMEAParser.h"
 #include <Wire.h>
-#include "BNO08x_AOG.h"
+// #include "BNO08x_AOG.h"  // Commented for UART-RVC mode
 #include <SimpleKalmanFilter.h>
 // Ethernet for ESP32 WT32-ETH01
 #include <ETH.h>
@@ -139,11 +139,17 @@ bool dualReadyRelPos = false;
 // booleans to see if we are using BNO08x
 bool useBNO08x = false;
 
-// BNO08x address variables to check where it is
-const uint8_t bno08xAddresses[] = { 0x4A, 0x4B };
-const int16_t nrBNO08xAdresses = sizeof(bno08xAddresses) / sizeof(bno08xAddresses[0]);
-uint8_t bno08xAddress;
-BNO080 bno08x;
+// BNO085 UART-RVC mode variables
+HardwareSerial SerialRVC(1);  // Use Serial1 for GPIO2 RX
+uint32_t lastRvcTime = 0;     // Watchdog for RVC data
+uint32_t rvcPacketCount = 0;  // RVC packets received counter
+double gyroZ = 0;             // Yaw rate (not available in RVC, set to 0)
+
+// BNO08x I2C variables - COMMENTED for RVC mode
+// const uint8_t bno08xAddresses[] = { 0x4A, 0x4B };
+// const int16_t nrBNO08xAdresses = sizeof(bno08xAddresses) / sizeof(bno08xAddresses[0]);
+uint8_t bno08xAddress = 0;
+// BNO080 bno08x;
 
 double baseline = 0;
 double rollDual = 0;
@@ -248,77 +254,39 @@ void setup()
   Serial.println("\r\nStarting Ethernet...");
   EthernetStart();
 
-  Serial.println("\r\nStarting BNO085...");
+  Serial.println("\r\nStarting BNO085 UART-RVC mode...");
 
-  // Initialize BNO085 if present.
-  // NOTA: Wire (ImuWire) já foi inicializado em autosteerSetup() com pinos GPIO32(SDA)/GPIO33(SCL)
-  // Não é possível reinicializar Wire com pinos diferentes no ESP32
-uint8_t error;
-//ImuWire.begin(33, 32); //REMOVIDO - Wire já inicializado em autosteerSetup()
-ImuWire.setClock(100000); // Configura velocidade para 100kHz (mais lento para inicialização)
+  // Initialize BNO085 UART-RVC on GPIO2 (RX only)
+  SerialRVC.begin(115200, SERIAL_8N1, 2, -1);  // RX=GPIO2, TX=not used
+  delay(100);
+  SerialRVC.flush();  // Clear any garbage data
+  while(SerialRVC.available()) SerialRVC.read();  // Empty buffer
+  useBNO08x = true;  // Enable RVC mode
+  lastRvcTime = millis();
 
-delay(100); // Delay adicional para estabilizar I²C
-
-for (int16_t i = 0; i < nrBNO08xAdresses; i++)
-{
-    bno08xAddress = bno08xAddresses[i];
-
-    ImuWire.beginTransmission(bno08xAddress);
-    error = ImuWire.endTransmission();
-
-    if (error == 0)
-    {
-        Serial.print("0x");
-        Serial.print(bno08xAddress, HEX);
-        Serial.println(" BNO08X detected, initializing...");
-
-        delay(100); // Delay antes de tentar begin()
-
-        // Initialize BNO080 lib
-        if (bno08x.begin(bno08xAddress, ImuWire))
-        {
-            Serial.println("BNO08X initialized successfully!");
-            
-            delay(500);
-
-            //Increase I2C data rate to 400kHz APÓS sucesso
-            ImuWire.setClock(400000); 
-
-            delay(200);
-
-            // Choose rotation vector mode
-            if (useMagnetometer) {
-                // RotationVector: Uses magnetometer - stable yaw, may have magnetic interference
-                bno08x.enableRotationVector(REPORT_INTERVAL);
-                Serial.println("Using RotationVector (with magnetometer)");
-            } else {
-                // GameRotationVector: No magnetometer - yaw drifts over time
-                bno08x.enableGameRotationVector(REPORT_INTERVAL);
-                Serial.println("Using GameRotationVector (no magnetometer)");
-            }
-            
-            // Enable gyroscope for yaw rate measurement
-            if (useYawRate) {
-                bno08x.enableGyro(REPORT_INTERVAL);
-            }
-            
-            delay(500);
-            
-            useBNO08x = true;
+  Serial.println("BNO085 UART-RVC initialized on GPIO2");
+  Serial.println("Waiting for RVC packets...");
+  
+  // Wait for first RVC packet to confirm communication
+  uint32_t startTime = millis();
+  bool rvcFound = false;
+  while(millis() - startTime < 2000) {  // 2 second timeout
+    if(SerialRVC.available() >= 2) {
+      uint8_t b1 = SerialRVC.read();
+      if(b1 == RVC_HEADER) {
+        if(SerialRVC.available() && SerialRVC.peek() == RVC_HEADER) {
+          rvcFound = true;
+          Serial.println("RVC sync found!");
+          break;
         }
-        else
-        {
-            Serial.println("BNO080 begin() failed.");
-        }
+      }
     }
-    else
-    {
-        Serial.print("0x");
-        Serial.print(bno08xAddress, HEX);
-        Serial.println(" BNO08X not found");
-    }
-    if (useBNO08x) break;
-}
+  }
+  
+  if(!rvcFound) {
+    Serial.println("WARNING: No RVC packets detected! Check BNO085 connection.");
+    useBNO08x = false;
+  }
   
 
   delay(100);
@@ -451,13 +419,17 @@ void loop()
     
     if (readyToSend)
     {
+        // Read BNO immediately before building NMEA to get latest values
+        if (useBNO08x) {
+            readBNO();
+        }
         imuHandler();
         BuildNmea();
         dualReadyGGA = false;
         dualReadyRelPos = false;
     }
 
-    //Read BNO
+    //Read BNO continuously to keep buffer empty
     if((millis() - READ_BNO_TIME) > REPORT_INTERVAL && useBNO08x)
     {
       READ_BNO_TIME = millis();

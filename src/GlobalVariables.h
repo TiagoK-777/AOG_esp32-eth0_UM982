@@ -10,7 +10,7 @@
 #include <WiFiUdp.h>
 #include <IPAddress.h>
 #include <SimpleKalmanFilter.h>
-#include "BNO08x_AOG.h"
+// #include "BNO08x_AOG.h"  // Commented for UART-RVC mode
 #include "zNMEAParser.h"
 
 // Constants
@@ -18,10 +18,14 @@
 #define twoPI 6.28318530717958647692
 #define PIBy2 1.57079632679489661923
 
+// BNO085 UART-RVC Protocol Constants
+#define RVC_HEADER 0xAA
+#define RVC_PACKET_SIZE 19
+
 // User settings
 constexpr bool invertRoll = true;  // Used for IMU with dual antenna
-constexpr bool useYawRate = false;  // Enable gyroscope yaw rate (requires BNO08x)
-constexpr bool useMagnetometer = true;  // Use RotationVector (with mag) instead of GameRotationVector (no mag)
+constexpr bool useYawRate = false;  // Not available in RVC mode
+constexpr bool useMagnetometer = false;  // RVC mode uses 6-axis fusion (No Magnetometer)
 
 // ConfigIP struct definition
 struct ConfigIP {
@@ -120,7 +124,11 @@ extern bool dualReadyGGA;
 extern bool dualReadyRelPos;
 extern bool useBNO08x;
 extern uint8_t bno08xAddress;
-extern BNO080 bno08x;
+// extern BNO080 bno08x;  // Commented for UART-RVC mode
+extern double gyroZ;  // Yaw rate (not available in RVC mode, set to 0)
+extern uint32_t lastRvcTime;  // Watchdog for RVC data
+extern uint32_t rvcPacketCount;  // RVC packets received counter
+extern HardwareSerial SerialRVC;  // BNO085 RVC mode (GPIO2/RX)
 extern double baseline;
 extern double rollDual;
 extern double pitchDual;
