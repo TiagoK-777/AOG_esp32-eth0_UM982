@@ -299,9 +299,10 @@ void autosteerLoop()
     if (steerConfig.CurrentSensor)
     {
       sensorSample = (float)analogRead(CURRENT_SENSOR_PIN);
-      // Adjusted for ESP32 12-bit ADC (0-4095) to AOG scale (0-255)
-      sensorSample = sensorSample * 0.06227f;
-      sensorReading = sensorReading * 0.7 + sensorSample * 0.3;    
+      // ACS723 Bidirectional: 0A = VCC/2 (~2048 on 12-bit ADC with divider)
+      // Subtract offset, take absolute, and scale to 0-255
+      sensorSample = abs(2048.0f - sensorSample) * 0.155f;
+      sensorReading = sensorReading * 0.7 + sensorSample * 0.3;
       sensorReading = min(sensorReading, 255.0f);
 
       if (sensorReading >= steerConfig.PulseCountMax)
