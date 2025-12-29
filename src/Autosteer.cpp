@@ -114,6 +114,9 @@ void steerSettingsInit()
 
 void autosteerSetup()
 {
+  // Set ADC resolution to 12-bit (0-4095) for ESP32
+  analogReadResolution(12);
+
   //PWM rate settings for ESP32 LEDC
   // PWM Frequency: 0=490hz (default), 1=122hz, 2=3921hz
   
@@ -296,7 +299,8 @@ void autosteerLoop()
     if (steerConfig.CurrentSensor)
     {
       sensorSample = (float)analogRead(CURRENT_SENSOR_PIN);
-      sensorSample = (abs(775 - sensorSample)) * 0.5;
+      // Adjusted for ESP32 12-bit ADC (0-4095) to AOG scale (0-255)
+      sensorSample = sensorSample * 0.06227f;
       sensorReading = sensorReading * 0.7 + sensorSample * 0.3;    
       sensorReading = min(sensorReading, 255.0f);
 
