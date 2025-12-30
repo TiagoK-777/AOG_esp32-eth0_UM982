@@ -24,7 +24,7 @@
 ADS1115_lite adc(ADS1115_DEFAULT_ADDRESS);     // Use this for the 16-bit version ADS1115
 
 #include <IPAddress.h>
-#include "BNO08x_AOG.h"
+//#include "BNO08x_AOG.h"
 #include <ETH.h>
 #include <WiFiUdp.h>
 
