@@ -36,7 +36,7 @@ void fuseIMU();
 /************************* User Settings *************************/
 bool udpPassthrough = false;  // False = GPS neeeds to send GGA, VTG & HPR messages. True = GPS needs to send KSXT messages only.
 bool makeOGI = false;         //Set to true to make PAOGI messages. Else PANDA message will be made.
-bool baseLineCheck = false;   //Set to true to use IMU fusion with UM982
+bool baseLineCheck = false;   //Set to true to use IMU fusion with UM982. Habilitar se estiver usando antenas duplas com UM982, e não tiver IMU conectado.
 // Moved to GlobalVariables.h: const bool invertRoll= true;  //Used for IMU with dual antenna
 #define baseLineLimit 5       //Max CM differance in baseline
 
