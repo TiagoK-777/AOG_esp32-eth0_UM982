@@ -171,17 +171,19 @@ void readBNO()
     // [13-14]: Accel Z (int16, little-endian, 0.001g resolution)
     // [15-17]: Reserved
     // [18]: Checksum (Sum of bytes 2-17)
-    
+
     static uint8_t rvcBuffer[RVC_PACKET_SIZE];
     static uint8_t bufferIndex = 0;
-    static enum {SYNC1, SYNC2, READ_DATA, VALIDATE} state = SYNC1;
-    static uint32_t checksumErrors = 0;
     
+    // Removemos o estado VALIDATE pois a validação agora ocorre dentro de READ_DATA
+    static enum {SYNC1, SYNC2, READ_DATA} state = SYNC1;
+    static uint32_t checksumErrors = 0;
+
     // Process all available bytes
     while(SerialRVC.available() > 0)
     {
         uint8_t inByte = SerialRVC.read();
-        
+
         switch(state)
         {
             case SYNC1:
@@ -190,7 +192,7 @@ void readBNO()
                     state = SYNC2;
                 }
                 break;
-                
+
             case SYNC2:
                 if(inByte == RVC_HEADER) {
                     rvcBuffer[1] = inByte;
@@ -201,115 +203,88 @@ void readBNO()
                     state = SYNC1;
                 }
                 break;
-                
+
             case READ_DATA:
                 rvcBuffer[bufferIndex++] = inByte;
+                
+                // Se o buffer encheu, validamos imediatamente
                 if(bufferIndex >= RVC_PACKET_SIZE) {
-                    state = VALIDATE;
-                }
-                break;
-                
-            case VALIDATE:
-            {
-                // Validate checksum (Sum of bytes 2-17)
-                uint8_t checksum = 0;
-                for(int i = 2; i < 18; i++) {
-                    checksum += rvcBuffer[i];
-                }
-                
-                if(checksum == rvcBuffer[18])
-                {
-                    // Extract data (int16, little-endian)
-                    // Byte 2 is Index, data starts at Byte 3
-                    int16_t rvcYaw = (int16_t)(rvcBuffer[3] | (rvcBuffer[4] << 8));
-                    int16_t rvcPitch = (int16_t)(rvcBuffer[5] | (rvcBuffer[6] << 8));
-                    int16_t rvcRoll = (int16_t)(rvcBuffer[7] | (rvcBuffer[8] << 8));
                     
-                    // Convert from 0.01° to degrees
-                    double tempYaw = rvcYaw;    // In 0.01°
-                    double tempPitch = rvcPitch;
-                    double tempRoll = rvcRoll;
-                    
-                    // Apply axis swap if configured (IsUseY_Axis swaps pitch/roll)
-                    if(steerConfig.IsUseY_Axis)
+                    // Validate checksum (Sum of bytes 2-17)
+                    uint8_t checksum = 0;
+                    for(int i = 2; i < 18; i++) {
+                        checksum += rvcBuffer[i];
+                    }
+
+                    if(checksum == rvcBuffer[18])
                     {
-                        roll = tempPitch;   // Pitch becomes Roll
-                        pitch = tempRoll;   // Roll becomes Pitch
+                        // Extract data (int16, little-endian)
+                        int16_t rvcYaw = (int16_t)(rvcBuffer[3] | (rvcBuffer[4] << 8));
+                        int16_t rvcPitch = (int16_t)(rvcBuffer[5] | (rvcBuffer[6] << 8));
+                        int16_t rvcRoll = (int16_t)(rvcBuffer[7] | (rvcBuffer[8] << 8));
+
+                        // Convert from 0.01° to degrees
+                        double tempYaw = rvcYaw;    // In 0.01°
+                        double tempPitch = rvcPitch;
+                        double tempRoll = rvcRoll;
+
+                        // Apply axis swap if configured (IsUseY_Axis swaps pitch/roll)
+                        if(steerConfig.IsUseY_Axis)
+                        {
+                            roll = tempPitch;   // Pitch becomes Roll
+                            pitch = tempRoll;   // Roll becomes Pitch
+                        }
+                        else
+                        {
+                            pitch = tempPitch;
+                            roll = tempRoll;
+                        }
+
+                        // Apply roll inversion if configured
+                        if(invertRoll)
+                        {
+                            roll *= -1;
+                        }
+
+                        // Process Yaw (heading)
+                        // Convert to radians for correctionHeading (used in fusion)
+                        correctionHeading = -(tempYaw / 100.0) * (PI / 180.0);  // 0.01° to radians, negated
+
+                        // Convert yaw to 0.1° resolution (tenths of degree) for imuHandler
+                        yaw = (int16_t)(tempYaw / 10.0);  // 0.01° to 0.1°
+                        if(yaw < 0) yaw += 3600;
+                        if(yaw >= 3600) yaw -= 3600;
+
+                        // Pitch and Roll: convert from 0.01° to 0.1° (divide by 10)
+                        pitch = pitch / 10.0;  // 0.01° to 0.1°
+                        roll = roll / 10.0;    // 0.01° to 0.1°
+
+                        // RVC doesn't provide gyro rate
+                        gyroZ = 0;
+
+                        // Update watchdog
+                        lastRvcTime = millis();
+                        rvcPacketCount++;
                     }
                     else
                     {
-                        pitch = tempPitch;
-                        roll = tempRoll;
+                        // Checksum failed
+                        checksumErrors++;
+                        if(checksumErrors % 100 == 0) {
+                            Serial.print("RVC checksum errors: ");
+                            Serial.println(checksumErrors);
+                        }
                     }
-                    
-                    // Apply roll inversion if configured
-                    if(invertRoll)
-                    {
-                        roll *= -1;
-                    }
-                    
-                    // Process Yaw (heading)
-                    // RVC yaw is in 0.01° resolution
-                    // correctionHeading needs radians, yaw needs 0.1° (tenths)
-                    
-                    // Convert to radians for correctionHeading (used in fusion)
-                    correctionHeading = -(tempYaw / 100.0) * (PI / 180.0);  // 0.01° to radians, negated
-                    
-                    // Convert yaw to 0.1° resolution (tenths of degree) for imuHandler
-                    yaw = (int16_t)(tempYaw / 10.0);  // 0.01° to 0.1°
-                    if(yaw < 0) yaw += 3600;
-                    if(yaw >= 3600) yaw -= 3600;
-                    
-                    // Pitch and Roll: convert from 0.01° to 0.1° (divide by 10)
-                    // imuHandler expects values in 0.1° (tenths of degree)
-                    pitch = pitch / 10.0;  // 0.01° to 0.1°
-                    roll = roll / 10.0;    // 0.01° to 0.1°
-                    
-                    // RVC doesn't provide gyro rate
-                    gyroZ = 0;
-                    
-                    // Update watchdog
-                    lastRvcTime = millis();
-                    rvcPacketCount++;
 
-                    // Debug print (every 100ms) - show values as sent to AgOpenGPS
-                    // static uint32_t lastPrintTime = 0;
-                    // if (millis() - lastPrintTime > 100) {
-                    //     lastPrintTime = millis();
-                    //     Serial.print("RVC -> Yaw: "); Serial.print(yaw / 10.0);  // Show in degrees
-                    //     Serial.print("° Pitch: "); Serial.print(pitch / 10.0);   // Show in degrees
-                    //     Serial.print("° Roll: "); Serial.print(roll / 10.0);     // Show in degrees
-                    //     Serial.print("° Idx: "); Serial.println(rvcBuffer[2]);
-                    // }
+                    // Reset state machine immediately for next packet
+                    state = SYNC1;
+                    bufferIndex = 0;
                 }
-                else
-                {
-                    // Checksum failed
-                    checksumErrors++;
-                    
-                    if(checksumErrors % 100 == 0) {
-                        Serial.print("RVC checksum errors: ");
-                        Serial.println(checksumErrors);
-                    }
-/*                    
-                    // Check if this byte could be start of next packet
-                    if(inByte == RVC_HEADER) {
-                        rvcBuffer[0] = inByte;
-                        state = SYNC2;
-                        bufferIndex = 0;
-                        break;
-                    }
-*/
-                }
-                
-                // Reset state machine
-                state = SYNC1;
-                bufferIndex = 0;
                 break;
-            }
         }
     }
 }
+
 
 void imuHandler()
 {
