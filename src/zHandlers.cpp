@@ -291,7 +291,7 @@ void readBNO()
                         Serial.print("RVC checksum errors: ");
                         Serial.println(checksumErrors);
                     }
-                    
+/*                    
                     // Check if this byte could be start of next packet
                     if(inByte == RVC_HEADER) {
                         rvcBuffer[0] = inByte;
@@ -299,6 +299,7 @@ void readBNO()
                         bufferIndex = 0;
                         break;
                     }
+*/
                 }
                 
                 // Reset state machine
