@@ -32,6 +32,7 @@ void CalculateChecksum(char* Sentence);
 void imuHandler();
 void imuDualDelta();
 void fuseIMU();
+void monitorPerformance();
 
 /************************* User Settings *************************/
 bool udpPassthrough = false;  // False = GPS neeeds to send GGA, VTG & HPR messages. True = GPS needs to send KSXT messages only.
@@ -449,8 +450,52 @@ void loop()
     //digitalWrite(Power_on_LED, 0);           //Commented to save ESP32 pins
     //digitalWrite(Ethernet_Active_LED, 1);    //Commented to save ESP32 pins
   }
+  monitorPerformance();
 }//End Loop
 //**************************************************************************
+
+void monitorPerformance() {
+    static uint32_t lastPrint = 0;
+    static uint32_t maxLoopTime = 0;
+    static uint32_t loopCount = 0;
+    static uint32_t startLoopTime = 0;
+
+    // Calcula tempo deste ciclo
+    uint32_t currentLoopTime = micros() - startLoopTime;
+    if (currentLoopTime > maxLoopTime) maxLoopTime = currentLoopTime;
+    
+    loopCount++;
+    startLoopTime = micros(); // Reseta para o próximo
+
+    if (millis() - lastPrint > 1000) {
+        lastPrint = millis();
+
+        // 1. Frequência do Loop (Hz) e Latência
+        Serial.print("PERF | Freq: "); 
+        Serial.print(loopCount); 
+        Serial.print("Hz | Max Latency: ");
+        Serial.print(maxLoopTime / 1000.0, 2); // Em milissegundos
+        Serial.print("ms | ");
+
+        // 2. Memória RAM (Heap)
+        // Heap livre total e o maior bloco contíguo (importante para evitar fragmentação)
+        Serial.print("Free Heap: ");
+        Serial.print(ESP.getFreeHeap() / 1024);
+        Serial.print("kB | ");
+        
+        // 3. Stack da Tarefa Atual (loopTask)
+        // Retorna o MÍNIMO de palavras livres que já existiu na pilha (se for < 500 é perigo)
+        UBaseType_t uxHighWaterMark = uxTaskGetStackHighWaterMark(NULL);
+        Serial.print("Stack Min: ");
+        Serial.print(uxHighWaterMark);
+        Serial.println(" words");
+
+        // Reseta contadores
+        loopCount = 0;
+        maxLoopTime = 0;
+    }
+}
+
 
 bool calcChecksum()
 {
