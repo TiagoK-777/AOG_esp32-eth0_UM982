@@ -446,7 +446,7 @@ void autosteerLoop()
   }
   */
 
-  if (encEnable)
+  if (encEnable && steerConfig.ShaftEncoder)
   {
     thisEnc = digitalRead(REMOTE_PIN);
     if (thisEnc != lastEnc)
