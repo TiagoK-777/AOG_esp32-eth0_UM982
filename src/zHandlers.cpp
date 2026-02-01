@@ -303,6 +303,10 @@ void readBNO()
                                     // gyroZ = (angVelAccum/20) × 100Hz × 0.01°/count = angVelAccum × 0.05 (°/s)
                                     gyroZ = (double)angVelAccum * 0.05;
                                     
+                                    // Debug: Print gyroZ calculation (uncomment to test)
+                                    // Serial.print("gyroZ: "); Serial.print(gyroZ); 
+                                    // Serial.print(" °/s (accum: "); Serial.print(angVelAccum); Serial.println(")");
+                                    
                                     // Reset accumulator
                                     angVelAccum = 0;
                                     angCounter = 0;

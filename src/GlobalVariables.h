@@ -24,7 +24,7 @@
 
 // User settings
 constexpr bool invertRoll = true;  // Used for IMU with dual antenna
-constexpr bool useYawRate = false;  // Not available in RVC mode
+constexpr bool useYawRate = true;  // YawRate now calculated from yaw deltas in RVC mode
 constexpr bool useMagnetometer = false;  // RVC mode uses 6-axis fusion (No Magnetometer)
 
 // ConfigIP struct definition
