@@ -178,6 +178,14 @@ void readBNO()
     // Removemos o estado VALIDATE pois a validação agora ocorre dentro de READ_DATA
     static enum {SYNC1, SYNC2, READ_DATA} state = SYNC1;
     static uint32_t checksumErrors = 0;
+    
+    // Angular velocity calculation (20-sample moving average like original BNO_RVC library)
+    static int16_t prevYaw = 0;
+    static uint8_t angCounter = 0;
+    static int32_t angVelAccum = 0;
+    static bool firstYaw = true;
+    static uint8_t lastIndex = 0;  // Track packet index to detect new packets
+    static bool firstPacket = true;
 
     // Process all available bytes
     while(SerialRVC.available() > 0)
@@ -218,51 +226,93 @@ void readBNO()
 
                     if(checksum == rvcBuffer[18])
                     {
-                        // Extract data (int16, little-endian)
-                        int16_t rvcYaw = (int16_t)(rvcBuffer[3] | (rvcBuffer[4] << 8));
-                        int16_t rvcPitch = (int16_t)(rvcBuffer[5] | (rvcBuffer[6] << 8));
-                        int16_t rvcRoll = (int16_t)(rvcBuffer[7] | (rvcBuffer[8] << 8));
-
-                        // Convert from 0.01° to degrees
-                        double tempYaw = rvcYaw;    // In 0.01°
-                        double tempPitch = rvcPitch;
-                        double tempRoll = rvcRoll;
-
-                        // Apply axis swap if configured (IsUseY_Axis swaps pitch/roll)
-                        if(steerConfig.IsUseY_Axis)
-                        {
-                            roll = tempPitch;   // Pitch becomes Roll
-                            pitch = tempRoll;   // Roll becomes Pitch
+                        // Check if this is a new packet (Index byte increments 0-255)
+                        uint8_t currentIndex = rvcBuffer[2];
+                        if(firstPacket) {
+                            lastIndex = currentIndex;
+                            firstPacket = false;
                         }
-                        else
+                        
+                        // Only process if this is a NEW packet (Index changed)
+                        if(currentIndex != lastIndex)
                         {
-                            pitch = tempPitch;
-                            roll = tempRoll;
-                        }
+                            lastIndex = currentIndex;
+                            
+                            // Extract data (int16, little-endian)
+                            int16_t rvcYaw = (int16_t)(rvcBuffer[3] | (rvcBuffer[4] << 8));
+                            int16_t rvcPitch = (int16_t)(rvcBuffer[5] | (rvcBuffer[6] << 8));
+                            int16_t rvcRoll = (int16_t)(rvcBuffer[7] | (rvcBuffer[8] << 8));
 
-                        // Apply roll inversion if configured
-                        if(invertRoll)
-                        {
-                            roll *= -1;
-                        }
+                            // Convert from 0.01° to degrees
+                            double tempYaw = rvcYaw;    // In 0.01°
+                            double tempPitch = rvcPitch;
+                            double tempRoll = rvcRoll;
 
-                        // Process Yaw (heading)
-                        // Convert to radians for correctionHeading (used in fusion)
-                        correctionHeading = -(tempYaw / 100.0) * (PI / 180.0);  // 0.01° to radians, negated
+                            // Apply axis swap if configured (IsUseY_Axis swaps pitch/roll)
+                            if(steerConfig.IsUseY_Axis)
+                            {
+                                roll = tempPitch;   // Pitch becomes Roll
+                                pitch = tempRoll;   // Roll becomes Pitch
+                            }
+                            else
+                            {
+                                pitch = tempPitch;
+                                roll = tempRoll;
+                            }
 
-                        // Convert yaw to 0.1° resolution (tenths of degree) for imuHandler
-                        yaw = (int16_t)(tempYaw / 10.0);  // 0.01° to 0.1°
-                        if(yaw < 0) yaw += 3600;
-                        if(yaw >= 3600) yaw -= 3600;
+                            // Apply roll inversion if configured
+                            if(invertRoll)
+                            {
+                                roll *= -1;
+                            }
 
-                        // Pitch and Roll: convert from 0.01° to 0.1° (divide by 10)
-                        pitch = pitch / 10.0;  // 0.01° to 0.1°
-                        roll = roll / 10.0;    // 0.01° to 0.1°
+                            // Process Yaw (heading)
+                            // Convert to radians for correctionHeading (used in fusion)
+                            correctionHeading = -(tempYaw / 100.0) * (PI / 180.0);  // 0.01° to radians, negated
 
-                        // RVC doesn't provide gyro rate
-                        gyroZ = 0;
+                            // Convert yaw to 0.1° resolution (tenths of degree) for imuHandler
+                            yaw = (int16_t)(tempYaw / 10.0);  // 0.01° to 0.1°
+                            if(yaw < 0) yaw += 3600;
+                            if(yaw >= 3600) yaw -= 3600;
 
-                        // Update watchdog
+                            // Pitch and Roll: convert from 0.01° to 0.1° (divide by 10)
+                            pitch = pitch / 10.0;  // 0.01° to 0.1°
+                            roll = roll / 10.0;    // 0.01° to 0.1°
+
+                            // Calculate angular velocity (yaw rate) from yaw deltas
+                            // BNO085 RVC transmits at ~100Hz (hardware fixed rate)
+                            // Loop frequency doesn't matter - we detect NEW packets by Index byte
+                            // 20 new packets = 0.2s real time (20/100Hz)
+                            if(firstYaw) {
+                                prevYaw = rvcYaw;
+                                firstYaw = false;
+                                gyroZ = 0;
+                            } else {
+                                // Calculate yaw delta (handle wraparound at ±180°)
+                                int16_t yawDelta = rvcYaw - prevYaw;
+                                if(yawDelta > 18000) yawDelta -= 36000;      // Wrapped from +180 to -180
+                                else if(yawDelta < -18000) yawDelta += 36000; // Wrapped from -180 to +180
+                                
+                                // Accumulate delta for averaging (only for NEW packets)
+                                angVelAccum += yawDelta;
+                                angCounter++;
+                                
+                                // Every 20 NEW packets (~0.2s), calculate average angular velocity
+                                if(angCounter >= 20) {
+                                    // Formula: gyroZ = (avg_delta_per_packet) × (packets_per_sec) × (degrees_per_count)
+                                    // gyroZ = (angVelAccum/20) × 100Hz × 0.01°/count = angVelAccum × 0.05 (°/s)
+                                    gyroZ = (double)angVelAccum * 0.05;
+                                    
+                                    // Reset accumulator
+                                    angVelAccum = 0;
+                                    angCounter = 0;
+                                }
+                                
+                                prevYaw = rvcYaw;
+                            }
+                        }  // End of "new packet" check
+
+                        // Update watchdog (even for duplicate packets)
                         lastRvcTime = millis();
                         rvcPacketCount++;
                     }
@@ -324,9 +374,9 @@ void imuHandler()
       //     Serial.print(" R:"); Serial.println(imuRoll);
       // }
 
-      // YawRate - not available in RVC mode
+      // YawRate - calculated from yaw deltas in RVC mode
       if (useYawRate) {
-          // RVC mode doesn't provide gyro rate, use global gyroZ (always 0)
+          // gyroZ is calculated in readBNO() using 20-sample moving average (°/s)
           temp = (int16_t)gyroZ;
           itoa(temp, imuYawRate, 10);
       } else {
