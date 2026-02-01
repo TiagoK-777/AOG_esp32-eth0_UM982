@@ -132,11 +132,12 @@ double heading = 0;
 byte ackPacket[72] = {0xB5, 0x62, 0x01, 0x3C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
 constexpr int serial_buffer_size = 512;
+//constexpr int serial_buffer_size = 1024;  // Aumentar para 2x margem de segurança (18ms de dados @ 460800 baud)
 uint8_t GPSrxbuffer[serial_buffer_size];    //Extra serial rx buffer
 uint8_t GPStxbuffer[serial_buffer_size];    //Extra serial tx buffer
-uint8_t GPS2rxbuffer[serial_buffer_size];   //Extra serial rx buffer
-uint8_t GPS2txbuffer[serial_buffer_size];   //Extra serial tx buffer
-uint8_t RTKrxbuffer[serial_buffer_size];    //Extra serial rx buffer
+//uint8_t GPS2rxbuffer[serial_buffer_size];   //Extra serial rx buffer - NÃO USADO, comentar para economizar RAM
+//uint8_t GPS2txbuffer[serial_buffer_size];   //Extra serial tx buffer - NÃO USADO, comentar para economizar RAM
+//uint8_t RTKrxbuffer[serial_buffer_size];    //Extra serial rx buffer - NÃO USADO, comentar para economizar RAM
 
 /* A parser is declared with 3 handlers at most */
 NMEAParser<4> parser;
@@ -212,8 +213,8 @@ void setup()
   delay(10);
   Serial.println("Start setup");
 
+  //SerialGPS->setRxBufferSize(1024); // IMPORTANTE: Chamar ANTES do begin()! Buffer hardware ESP32 (ativar se aumentar serial_buffer_size)
   SerialGPS->begin(baudGPS, SERIAL_8N1, 5, 17); // RX=GPIO5, TX=GPIO17
-  //SerialGPS->setRxBufferSize(serial_buffer_size); // ESP32 buffer config
 
   delay(10);
   //SerialRTK.begin(baudRTK, SERIAL_8N1, 4, 2); // RX=GPIO4, TX=GPIO2
