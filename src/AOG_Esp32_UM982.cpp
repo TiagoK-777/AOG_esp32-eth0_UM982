@@ -16,22 +16,6 @@ Forked from https://github.com/AgHardware/Boards/blob/main/TeensyModules/AIO%20S
 // Ethernet for ESP32 WT32-ETH01
 #include <ETH.h>
 #include <WiFiUdp.h>
-
-// Forward declarations for cross-file functions
-void autosteerSetup();
-void autosteerLoop();
-void EthernetStart();
-void udpNtrip();
-void errorHandler();
-void GGA_Handler();
-void VTG_Handler();
-void HPR_Handler();
-void readBNO();
-void BuildNmea();
-void CalculateChecksum(char* Sentence);
-void imuHandler();
-void imuDualDelta();
-void fuseIMU();
 void monitorPerformance();
 
 /************************* User Settings *************************/
@@ -90,19 +74,6 @@ uint32_t READ_BNO_TIME = 0;   //Used stop BNO data pile up (This version is with
 
 // LED pin definitions moved to GlobalVariables.h
 uint32_t gpsReadyTime = 0;        //Used for GGA timeout
-
-void errorHandler();
-void GGA_Handler();
-void VTG_Handler();
-void HPR_Handler();
-void autosteerSetup();
-void EthernetStart();
-void udpNtrip();
-void BuildNmea();
-void relPosDecode();
-void readBNO();
-void autosteerLoop();
-void ReceiveUdp();
 
 // Global instances
 ConfigIP networkAddress;   //3 bytes
