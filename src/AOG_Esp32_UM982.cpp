@@ -69,7 +69,7 @@ int msgBufLen = 0;
 
 #define ImuWire Wire        //Wire é inicializado em autosteerSetup(): SDA=GPIO32, SCL=GPIO33
 
-#define REPORT_INTERVAL 5     //BNO report time (ms). BNO085 RVC transmits at ~100Hz (10ms), read faster to avoid buffer overflow
+#define REPORT_INTERVAL 10     //BNO report time (ms). BNO085 RVC transmits at ~100Hz (10ms), read faster to avoid buffer overflow
 uint32_t READ_BNO_TIME = 0;   //Used stop BNO data pile up (This version is without resetting BNO everytime)
 
 // LED pin definitions moved to GlobalVariables.h
