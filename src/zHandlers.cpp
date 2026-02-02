@@ -179,10 +179,12 @@ void readBNO()
     static enum {SYNC1, SYNC2, READ_DATA} state = SYNC1;
     static uint32_t checksumErrors = 0;
     
-    // Angular velocity calculation (20-sample moving average like original BNO_RVC library)
+    // Angular velocity calculation (Ring Buffer 20-sample moving average)
+    // Updates every packet (100Hz) instead of every 20 packets (5Hz)
     static int16_t prevYaw = 0;
-    static uint8_t angCounter = 0;
-    static int32_t angVelAccum = 0;
+    static int16_t yawDeltas[20] = {0};  // Circular buffer for last 20 deltas
+    static uint8_t ringHead = 0;         // Current position in ring buffer
+    static int32_t rollingSum = 0;       // Sum of all 20 deltas
     static bool firstYaw = true;
     static uint8_t lastIndex = 0;  // Track packet index to detect new packets
     static bool firstPacket = true;
@@ -293,24 +295,20 @@ void readBNO()
                                 if(yawDelta > 18000) yawDelta -= 36000;      // Wrapped from +180 to -180
                                 else if(yawDelta < -18000) yawDelta += 36000; // Wrapped from -180 to +180
                                 
-                                // Accumulate delta for averaging (only for NEW packets)
-                                angVelAccum += yawDelta;
-                                angCounter++;
+                                // Ring Buffer Moving Average (updates EVERY packet = 100Hz)
+                                // Remove oldest value from sum, add newest value
+                                rollingSum -= yawDeltas[ringHead];
+                                rollingSum += yawDelta;
+                                yawDeltas[ringHead] = yawDelta;
                                 
-                                // Every 20 NEW packets (~0.2s), calculate average angular velocity
-                                if(angCounter >= 20) {
-                                    // Formula: gyroZ = (avg_delta_per_packet) × (packets_per_sec) × (degrees_per_count)
-                                    // gyroZ = (angVelAccum/20) × 100Hz × 0.01°/count = angVelAccum × 0.05 (°/s)
-                                    gyroZ = (double)angVelAccum * 0.05;
-                                    
-                                    // Debug: Print gyroZ calculation (uncomment to test)
-                                    // Serial.print("gyroZ: "); Serial.print(gyroZ); 
-                                    // Serial.print(" °/s (accum: "); Serial.print(angVelAccum); Serial.println(")");
-                                    
-                                    // Reset accumulator
-                                    angVelAccum = 0;
-                                    angCounter = 0;
-                                }
+                                // Advance ring buffer position (circular)
+                                ringHead++;
+                                if(ringHead >= 20) ringHead = 0;
+                                
+                                // Calculate gyroZ from rolling sum (updates every packet!)
+                                // Formula: gyroZ = (avg_delta_per_packet) × (packets_per_sec) × (degrees_per_count)
+                                // gyroZ = (rollingSum/20) × 100Hz × 0.01°/count = rollingSum × 0.05 (°/s)
+                                gyroZ = (double)rollingSum * 0.05;
                                 
                                 prevYaw = rvcYaw;
                             }
