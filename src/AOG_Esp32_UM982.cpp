@@ -16,7 +16,7 @@ Forked from https://github.com/AgHardware/Boards/blob/main/TeensyModules/AIO%20S
 // Ethernet for ESP32 WT32-ETH01
 #include <ETH.h>
 #include <WiFiUdp.h>
-void monitorPerformance();
+//void monitorPerformance();
 
 /************************* User Settings *************************/
 bool udpPassthrough = false;  // False = GPS neeeds to send GGA, VTG & HPR messages. True = GPS needs to send KSXT messages only.
@@ -422,7 +422,7 @@ void loop()
     //digitalWrite(Power_on_LED, 0);           //Commented to save ESP32 pins
     //digitalWrite(Ethernet_Active_LED, 1);    //Commented to save ESP32 pins
   }
-  monitorPerformance();
+//  monitorPerformance();
 }//End Loop
 //**************************************************************************
 
