@@ -115,7 +115,7 @@ bool useBNO08x = false;
 HardwareSerial SerialRVC(1);  // Use Serial1 for GPIO2 RX
 uint32_t lastRvcTime = 0;     // Watchdog for RVC data
 uint32_t rvcPacketCount = 0;  // RVC packets received counter
-double gyroZ = 0;             // Yaw rate (not available in RVC, set to 0)
+double gyroZ = 0;             // Yaw rate (°/s) calculated from RVC yaw deltas
 
 // BNO08x I2C variables - COMMENTED for RVC mode
 // const uint8_t bno08xAddresses[] = { 0x4A, 0x4B };
@@ -279,90 +279,80 @@ void setup()
 void loop()
 {
     // Read incoming nmea from GPS
-    if (SerialGPS->available())
+    if (udpPassthrough)
     {
-      static bool synced = false;
-      
-      // Sincroniza com o início da mensagem NMEA
-      if (!synced) {
-        char c = SerialGPS->read();
-        if (c == '$') {
-          synced = true;
-          parser << c; // Envia o $ para o parser
-        }
-        // Continua no próximo ciclo até encontrar $
-      }
-      else if (udpPassthrough)
-      {
-          //char mChar;
-          char incoming = SerialGPS->read();
-          //Serial.println(incoming);
-          switch (incoming) {
-              case '$':
-              msgBuf[msgBufLen] = incoming;
-              msgBufLen ++;
-              gotDollar = true;
-              break;
-              case '\r':
-              msgBuf[msgBufLen] = incoming;
-              msgBufLen ++;
-              gotCR = true;
-              gotDollar = false;
-              break;
-              case '\n':
-              msgBuf[msgBufLen] = incoming;
-              msgBufLen ++;
-              gotLF = true;
-              gotDollar = false;
-              break;
-              default:
-              if (gotDollar)
-                  {
-                  msgBuf[msgBufLen] = incoming;
-                  msgBufLen ++;
-                  }
-              break;
-          }
-          if (gotCR && gotLF){
-              //Serial.print(msgBuf);
-              //Serial.println(msgBufLen);
-              if (sendUSB) { SerialAOG.write(msgBuf); } // Send USB GPS data if enabled in user settings
-              if (Ethernet_running){
-                  Eth_udpPAOGI.beginPacket(Eth_ipDestination, portDestination);
-                  Eth_udpPAOGI.write((const uint8_t*)msgBuf, msgBufLen);
-                  Eth_udpPAOGI.endPacket();
-              }
-              gotCR = false;
-              gotLF = false;
-              gotDollar = false;
-              memset( msgBuf, 0, 254 );
-              msgBufLen = 0;
-              if (blink)
-              {
-                  //digitalWrite(GGAReceivedLED, HIGH);  //Commented to save ESP32 pins
-              }
-              else
-              {
-                  //digitalWrite(GGAReceivedLED, LOW);   //Commented to save ESP32 pins
-              }
+        // Modo raw: captura sentença completa NMEA e envia via UDP/USB
+        while (SerialGPS->available())
+        {
+            char incoming = SerialGPS->read();
 
-              blink = !blink;
-              //digitalWrite(GPSGREEN_LED, HIGH);   //Turn green GPS LED ON - Commented to save ESP32 pins
-          }
-      }
-      else
-      {
-        // Processa normalmente após sincronização
-        while (SerialGPS->available()) {
-          char c = SerialGPS->read();
-          parser << c;
-          
-          // Re-sincroniza se perder o stream
-          if (c == '$') {
-            synced = true;
-          }
+            switch (incoming) {
+                case '$':
+                case '!':  // NMEA também aceita ! como início
+                    // Nova sentença: reseta buffer
+                    msgBufLen = 0;
+                    gotCR = false;
+                    gotLF = false;
+                    gotDollar = true;
+                    msgBuf[msgBufLen++] = incoming;
+                    break;
+
+                case '\r':
+                    if (gotDollar && msgBufLen < sizeof(msgBuf)) {
+                        msgBuf[msgBufLen++] = incoming;
+                        gotCR = true;
+                    }
+                    break;
+
+                case '\n':
+                    if (gotDollar && gotCR && msgBufLen < sizeof(msgBuf)) {
+                        msgBuf[msgBufLen++] = incoming;
+                        gotLF = true;
+                    }
+                    break;
+
+                default:
+                    if (gotDollar && msgBufLen < sizeof(msgBuf)) {
+                        msgBuf[msgBufLen++] = incoming;
+                    }
+                    break;
+            }
+
+            // Sentença completa: envia
+            if (gotCR && gotLF) {
+                if (sendUSB) {
+                    SerialAOG.write((const uint8_t*)msgBuf, msgBufLen);
+                }
+                if (Ethernet_running) {
+                    Eth_udpPAOGI.beginPacket(Eth_ipDestination, portDestination);
+                    Eth_udpPAOGI.write((const uint8_t*)msgBuf, msgBufLen);
+                    Eth_udpPAOGI.endPacket();
+                }
+
+                blink = !blink;
+
+                // Reseta para próxima sentença
+                gotCR = false;
+                gotLF = false;
+                gotDollar = false;
+                msgBufLen = 0;
+            }
+
+            // Proteção: se estourar buffer sem fechar, descarta
+            if (msgBufLen >= sizeof(msgBuf)) {
+                gotCR = false;
+                gotLF = false;
+                gotDollar = false;
+                msgBufLen = 0;
+            }
         }
-      }
+    }
+    else
+    {
+        // Modo parser: alimenta o NMEAParser byte-a-byte
+        while (SerialGPS->available()) {
+            parser << SerialGPS->read();
+        }
     }
 
     udpNtrip();

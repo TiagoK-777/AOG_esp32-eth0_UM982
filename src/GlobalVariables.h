@@ -125,7 +125,7 @@ extern bool dualReadyRelPos;
 extern bool useBNO08x;
 extern uint8_t bno08xAddress;
 // extern BNO080 bno08x;  // Commented for UART-RVC mode
-extern double gyroZ;  // Yaw rate (not available in RVC mode, set to 0)
+extern double gyroZ;  // Yaw rate (°/s) calculated from RVC yaw deltas
 extern uint32_t lastRvcTime;  // Watchdog for RVC data
 extern uint32_t rvcPacketCount;  // RVC packets received counter
 extern HardwareSerial SerialRVC;  // BNO085 RVC mode (GPIO2/RX)
