@@ -179,12 +179,16 @@ void readBNO()
     static enum {SYNC1, SYNC2, READ_DATA} state = SYNC1;
     static uint32_t checksumErrors = 0;
     
-    // Angular velocity calculation (Ring Buffer 20-sample moving average)
-    // Updates every packet (100Hz) instead of every 20 packets (5Hz)
+    // Angular velocity calculation (Ring Buffer 5-sample moving average)
+    // 5 samples @ 100Hz = 50ms window: low lag, sufficient noise filtering
+    /*
+        Se no campo perceber o gyroZ "nervoso" demais (improvável com o BNO085 RVC), 
+        basta subir para 8 amostras (yawDeltas) (fator 0.125, janela 80ms).
+    */
     static int16_t prevYaw = 0;
-    static int16_t yawDeltas[20] = {0};  // Circular buffer for last 20 deltas
+    static int16_t yawDeltas[5] = {0};   // Circular buffer for last 5 deltas
     static uint8_t ringHead = 0;         // Current position in ring buffer
-    static int32_t rollingSum = 0;       // Sum of all 20 deltas
+    static int32_t rollingSum = 0;       // Sum of all 5 deltas
     static bool firstYaw = true;
     static uint8_t lastIndex = 0;  // Track packet index to detect new packets
     static bool firstPacket = true;
@@ -303,12 +307,12 @@ void readBNO()
                                 
                                 // Advance ring buffer position (circular)
                                 ringHead++;
-                                if(ringHead >= 20) ringHead = 0;
+                                if(ringHead >= 5) ringHead = 0; // Ajustar se necessário para 8 amostras (ringHead >= 8)
                                 
                                 // Calculate gyroZ from rolling sum (updates every packet!)
                                 // Formula: gyroZ = (avg_delta_per_packet) × (packets_per_sec) × (degrees_per_count)
-                                // gyroZ = (rollingSum/20) × 100Hz × 0.01°/count = rollingSum × 0.05 (°/s)
-                                gyroZ = (double)rollingSum * 0.05;
+                                // gyroZ = (rollingSum/5) × 100Hz × 0.01°/count = rollingSum × 0.2 (°/s)
+                                gyroZ = (double)rollingSum * 0.2; // Ajustar fator se necessário para 8 amostras (0.125 para 8 amostras)
                                 
                                 prevYaw = rvcYaw;
                             }
