@@ -116,6 +116,7 @@ void autosteerSetup()
 {
   // Set ADC resolution to 12-bit (0-4095) for ESP32
   analogReadResolution(12);
+  analogSetAttenuation(ADC_11db);  // Full range 0-3.3V (needed for IBT-2 and ACS723 current sensors)
 
   //PWM rate settings for ESP32 LEDC
   // PWM Frequency: 0=490hz (default), 1=122hz, 2=3921hz
@@ -299,13 +300,24 @@ void autosteerLoop()
     if (steerConfig.CurrentSensor)
     {
       sensorSample = (float)analogRead(CURRENT_SENSOR_PIN);
-      // ACS723 Bidirectional: 0A = VCC/2 (~2048 on 12-bit ADC with divider)
-      // Subtract offset, take absolute, and scale to 0-255
-      sensorSample = abs(2048.0f - sensorSample) * 0.155f;
+      
+      if (isIBT2CurrentSensor)
+      {
+        // IBT-2: 0V = 0A, 3.3V = Max (Linear 0-4095)
+        // Scale 0-4095 range to 0-255 for AOG
+        sensorSample = sensorSample * 0.06227f;
+      }
+      else
+      {
+        // ACS723 Bidirectional: 0A = VCC/2 (~2048 on 12-bit ADC)
+        // Subtract offset, take absolute, and scale to 0-255
+        sensorSample = abs(2048.0f - sensorSample) * 0.155f;
+      }
+
       sensorReading = sensorReading * 0.7 + sensorSample * 0.3;
       sensorReading = min(sensorReading, 255.0f);
 
-      if (sensorReading >= steerConfig.PulseCountMax)
+      if (sensorReading >= (float)steerConfig.PulseCountMax)
       {
           steerSwitch = 1; // reset values like it turned off
           currentState = 1;

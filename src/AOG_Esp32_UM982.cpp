@@ -56,6 +56,9 @@ const int32_t baudRTK = 9600;           // most are using Xbee radios with defau
 // Send data to AgIO via usb
 bool sendUSB = false;
 
+// Current Sensor Type: false = ACS723 (VCC/2 offset), true = IBT-2 (0-3.3V)
+bool isIBT2CurrentSensor = false;
+
 /************************* End User Settings **********************/
 
 SimpleKalmanFilter rollFilter(rollMEA, rollEST, rollQ);

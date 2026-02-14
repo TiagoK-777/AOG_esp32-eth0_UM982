@@ -96,6 +96,7 @@ extern float headingMEA;
 extern float headingEST;
 extern float headingQ;
 extern bool sendUSB;
+extern bool isIBT2CurrentSensor;
 extern bool gotCR;
 extern bool gotLF;
 extern bool gotDollar;
