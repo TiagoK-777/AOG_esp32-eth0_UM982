@@ -119,7 +119,7 @@ void autosteerSetup()
   analogSetAttenuation(ADC_11db);  // Full range 0-3.3V (needed for IBT-2 and ACS723 current sensors)
 
   //PWM rate settings for ESP32 LEDC
-  // PWM Frequency: 0=490hz (default), 1=122hz, 2=3921hz
+  // PWM Frequency: 0=490hz (default), 1=10000hz, 2=15000hz
   
   //keep pulled high and drag low to activate, noise free safe
   pinMode(WORKSW_PIN, INPUT);
@@ -134,13 +134,13 @@ void autosteerSetup()
   
   if (PWM_Frequency == 1)
   {
-    ledcSetup(0, 122, 8);
-    ledcSetup(1, 122, 8);
+    ledcSetup(0, 10000, 8);
+    ledcSetup(1, 10000, 8);
   }
   else if (PWM_Frequency == 2)
   {
-    ledcSetup(0, 3921, 8);
-    ledcSetup(1, 3921, 8);
+    ledcSetup(0, 15000, 8);
+    ledcSetup(1, 15000, 8);
   }
   
   // Attach pins to LEDC channels
