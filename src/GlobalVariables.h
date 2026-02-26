@@ -143,7 +143,7 @@ extern bool Autosteer_running;
 extern bool Ethernet_running;
 
 // Global variables from zHandlers.cpp
-extern char nmea[100];
+extern char nmea[150];
 extern char fixTime[12];
 extern char latitude[15];
 extern char latNS[3];
@@ -159,10 +159,10 @@ extern char speedKnots[10];
 extern char umHeading[8];
 extern char umRoll[8];
 extern int solQuality;
-extern char imuHeading[6];
-extern char imuRoll[6];
-extern char imuPitch[6];
-extern char imuYawRate[6];
+extern char imuHeading[10];
+extern char imuRoll[10];
+extern char imuPitch[10];
+extern char imuYawRate[10];
 extern double gpsHeading;
 extern double imuGPS_Offset;
 extern double correctionHeading;

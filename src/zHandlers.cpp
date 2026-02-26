@@ -12,8 +12,8 @@ You should have received a copy of the GNU General Public License along with thi
 // Conversion to Hexidecimal
 const char* asciiHex = "0123456789ABCDEF";
 
-// the new PANDA sentence buffer
-char nmea[100];
+// the new PANDA/PAOGI sentence buffer (150 bytes for PAOGI decimal format safety)
+char nmea[150];
 
 // GGA
 char fixTime[12];
@@ -36,11 +36,11 @@ char umHeading[8];
 char umRoll[8];
 int solQuality;
 
-// IMU
-char imuHeading[6];
-char imuRoll[6];
-char imuPitch[6];
-char imuYawRate[6];
+// IMU - buffers increased for PAOGI decimal format (e.g. "-360.0\0" = 7 bytes)
+char imuHeading[10];
+char imuRoll[10];
+char imuPitch[10];
+char imuYawRate[10];
 
 // If odd characters showed up.
 void errorHandler()
@@ -348,45 +348,40 @@ void imuHandler()
 
   if (useBNO08x)
   {
-      //BNO is reading in its own timer    
-      // Fill rest of Panda Sentence - Heading
-      temp = yaw;
-      itoa(temp, imuHeading, 10);
+      if (makeOGI)
+      {
+          // PAOGI: valores em graus decimais (float)
+          // yaw, pitch, roll estão em unidades de 0.1° (x10), converter para graus
+          dtostrf(yaw * 0.1, 3, 1, imuHeading);    // Ex: "123.4"
+          dtostrf(pitch * 0.1, 3, 1, imuPitch);     // Ex: "0.5"
+          dtostrf(roll * 0.1, 3, 1, imuRoll);       // Ex: "-1.2"
 
-      // the pitch x10
-      temp = (int16_t)pitch;
-      itoa(temp, imuPitch, 10);
+          // YawRate in °/s
+          if (useYawRate) {
+              dtostrf(gyroZ, 3, 1, imuYawRate);      // Ex: "5.2"
+          } else {
+              dtostrf(0.0, 3, 1, imuYawRate);
+          }
+      }
+      else
+      {
+          // PANDA: valores como inteiros x10
+          temp = yaw;
+          itoa(temp, imuHeading, 10);
 
-      // the roll x10
-      temp = (int16_t)roll;
-      itoa(temp, imuRoll, 10);
+          temp = (int16_t)pitch;
+          itoa(temp, imuPitch, 10);
 
-      // Debug: show what's being sent to AgOpenGPS
-      // static uint32_t lastImuPrint = 0;
-      // static uint32_t imuCount = 0;
-      // static uint32_t lastRateCalc = 0;
-      // 
-      // imuCount++;
-      // if (millis() - lastRateCalc >= 1000) {
-      //     Serial.print("NMEA rate: "); Serial.print(imuCount); Serial.println(" Hz");
-      //     imuCount = 0;
-      //     lastRateCalc = millis();
-      // }
-      // 
-      // if (millis() - lastImuPrint > 500) {
-      //     lastImuPrint = millis();
-      //     Serial.print("NMEA -> H:"); Serial.print(imuHeading);
-      //     Serial.print(" P:"); Serial.print(imuPitch);
-      //     Serial.print(" R:"); Serial.println(imuRoll);
-      // }
+          temp = (int16_t)roll;
+          itoa(temp, imuRoll, 10);
 
-      // YawRate - calculated from yaw deltas in RVC mode
-      if (useYawRate) {
-          // gyroZ is calculated in readBNO() using 20-sample moving average (°/s)
-          temp = (int16_t)gyroZ;
-          itoa(temp, imuYawRate, 10);
-      } else {
-          itoa(0, imuYawRate, 10);
+          // YawRate as integer °/s
+          if (useYawRate) {
+              temp = (int16_t)gyroZ;
+              itoa(temp, imuYawRate, 10);
+          } else {
+              itoa(0, imuYawRate, 10);
+          }
       }
   }
 
@@ -394,11 +389,7 @@ void imuHandler()
   // We have a IMU so apply the dual/IMU roll/heading error to the IMU data.
   if ( useBNO08x && baseLineCheck)
   {
-      float dualTemp;   //To convert IMU data (x10) to a float for the PAOGI so we have the decamal point
-              
-      // the IMU heading raw
-      // dualTemp = yaw * 0.1;
-      // dtostrf(dualTemp, 3, 1, imuHeading);          
+      float dualTemp;
 
       // the IMU heading fused to the dual heading
       fuseIMU();
@@ -417,6 +408,12 @@ void imuHandler()
       }
       dtostrf(dualTemp, 3, 1, imuRoll);
 
+      // YawRate for dual+IMU mode
+      if (useYawRate) {
+          dtostrf(gyroZ, 3, 1, imuYawRate);
+      } else {
+          dtostrf(0.0, 3, 1, imuYawRate);
+      }
   }
   else if (!useBNO08x)  //Not using IMU so put dual Heading & Roll in direct.
   {
@@ -442,6 +439,13 @@ void imuHandler()
 
       // the pitch
       dtostrf(pitchDual, 4, 4, imuPitch);
+
+      // YawRate not available without IMU
+      if (makeOGI) {
+          dtostrf(0.0, 3, 1, imuYawRate);
+      } else {
+          itoa(0, imuYawRate, 10);
+      }
   }
 }
 
