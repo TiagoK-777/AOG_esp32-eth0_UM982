@@ -516,7 +516,7 @@ void ReceiveUdp()
 
                 //Serial.println(gpsSpeed);
 
-                if ((bitRead(guidanceStatus, 0) == 0) || (gpsSpeed < 0.1) || (steerSwitch == 1))
+                if ((bitRead(guidanceStatus, 0) == 0) || (gpsSpeed < 1.5) || (steerSwitch == 1))
                 {
                     watchdogTimer = WATCHDOG_FORCE_VALUE; //turn off steering motor
                 }
