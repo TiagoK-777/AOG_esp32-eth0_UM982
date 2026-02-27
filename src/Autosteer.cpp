@@ -232,13 +232,19 @@ void autosteerLoop()
     //read all the switches
     workSwitch = digitalRead(WORKSW_PIN);  // read work switch
 
+    reading = digitalRead(STEERSW_PIN);
+
     if (steerConfig.SteerSwitch == 1)         //steer switch on - off
     {
-      steerSwitch = digitalRead(STEERSW_PIN); //read auto steer enable switch open = 0n closed = Off
+      if (reading == HIGH)
+      {
+        currentState = 1;
+        steerSwitch = 1;
+      }
     }
-    else if (steerConfig.SteerButton == 1)    //steer Button momentary
+
+    if (steerConfig.SteerButton == 1 || steerConfig.SteerSwitch == 1)
     {
-      reading = digitalRead(STEERSW_PIN);
       if (reading == LOW && previous == HIGH)
       {
         if (currentState == 1)
