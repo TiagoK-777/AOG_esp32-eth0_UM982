@@ -16,7 +16,7 @@ Forked from https://github.com/AgHardware/Boards/blob/main/TeensyModules/AIO%20S
 // Ethernet for ESP32 WT32-ETH01
 #include <ETH.h>
 #include <WiFiUdp.h>
-//void monitorPerformance();
+void monitorPerformance();
 
 /************************* User Settings *************************/
 bool udpPassthrough = false;  // False = GPS neeeds to send GGA, VTG & HPR messages. True = GPS needs to send KSXT messages only.
@@ -353,8 +353,15 @@ void loop()
     else
     {
         // Modo parser: alimenta o NMEAParser byte-a-byte
-        while (SerialGPS->available()) {
-            parser << SerialGPS->read();
+        // Limite por ciclo distribui o processamento sem corromper o parser (state-machine stateful)
+        // 460800 baud = ~57 bytes/ms | loop ~8kHz = ~0.125ms/ciclo → ~7 bytes disponíveis por ciclo
+        // 64 bytes/ciclo = ~1.1ms de dados por iteração (margem segura sem overflow no buffer de 512 bytes)
+        constexpr uint8_t MAX_GPS_BYTES_PER_CYCLE = 64;
+        uint8_t bytesRead = 0;
+        while (SerialGPS->available() && bytesRead < MAX_GPS_BYTES_PER_CYCLE)
+        {
+            parser << (char)SerialGPS->read();
+            bytesRead++;
         }
     }
 
@@ -415,7 +422,7 @@ void loop()
     //digitalWrite(Power_on_LED, 0);           //Commented to save ESP32 pins
     //digitalWrite(Ethernet_Active_LED, 1);    //Commented to save ESP32 pins
   }
-//  monitorPerformance();
+  monitorPerformance();
 }//End Loop
 //**************************************************************************
 
