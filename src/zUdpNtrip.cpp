@@ -1,9 +1,9 @@
 /*
-   UDP Autosteer code for Teensy 4.1
+   UDP NTRIP passthrough for ESP32 WT32-ETH01
    For AgOpenGPS
-   01 Feb 2022
-   Like all Arduino code - copied from somewhere else :)
-   So don't claim it as your own
+   Relies on SerialGPS TX buffer (2048 bytes, set in setup) so that
+   write() copies to RAM and returns in microseconds. The UART ISR
+   drains the buffer to hardware FIFO in background.
 */
 
 #include <Arduino.h>
@@ -18,18 +18,13 @@ void udpNtrip()
   }
 
   unsigned int packetLength = Eth_udpNtrip.parsePacket();
-  
   if (packetLength > 0)
   {
-    //Serial.print("[NTRIP] Recebido ");
-    //Serial.print(packetLength);
-    //Serial.print(" bytes -> Enviando para SerialGPS (GPIO17 TX)...");
-    
+    if (packetLength > sizeof(Eth_NTRIP_packetBuffer))
+    {
+      packetLength = sizeof(Eth_NTRIP_packetBuffer);
+    }
     Eth_udpNtrip.read(Eth_NTRIP_packetBuffer, packetLength);
-    size_t bytesWritten = SerialGPS->write(Eth_NTRIP_packetBuffer, packetLength);
-    
-    //Serial.print(" Enviado: ");
-    //Serial.print(bytesWritten);
-    //Serial.println(" bytes");
+    SerialGPS->write(reinterpret_cast<const uint8_t*>(Eth_NTRIP_packetBuffer), packetLength);
   }
 }

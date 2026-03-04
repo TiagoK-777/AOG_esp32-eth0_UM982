@@ -217,6 +217,7 @@ void setup()
   Serial.println("Start setup");
 
   //SerialGPS->setRxBufferSize(1024); // IMPORTANTE: Chamar ANTES do begin()! Buffer hardware ESP32 (ativar se aumentar serial_buffer_size)
+  SerialGPS->setTxBufferSize(2048); // Buffer TX em RAM: write() faz memcpy e retorna em µs, ISR drena em background
   SerialGPS->begin(baudGPS, SERIAL_8N1, 5, 17); // RX=GPIO5, TX=GPIO17
 
   delay(10);
