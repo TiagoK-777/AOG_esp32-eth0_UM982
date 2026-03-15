@@ -210,9 +210,9 @@ void EncoderFunc();  // May not be defined in all builds
 
 // Autosteer Configuration Constants
 #define LOW_HIGH_DEGREES 5.0
-#define LOOP_TIME 100
+#define LOOP_TIME 25  // Loop time in milliseconds (40Hz)
 #define WATCHDOG_THRESHOLD 100
-#define WATCHDOG_FORCE_VALUE 200
+#define WATCHDOG_FORCE_VALUE 102
 #define PWM_Frequency 0  // 0=490Hz (default), 1=10000Hz, 2=15000Hz
 #define EEP_Ident 2400
 #define CONST_180_DIVIDED_BY_PI 57.2957795130823
