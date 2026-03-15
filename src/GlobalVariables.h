@@ -209,7 +209,7 @@ void EncoderFunc();  // May not be defined in all builds
 //#define PRESSURE_SENSOR_PIN 36     //Removed - not used, only current sensor
 
 // Autosteer Configuration Constants
-#define LOW_HIGH_DEGREES 5.0
+#define LOW_HIGH_DEGREES 3.0 // 3.0: Resposta mais agressiva, 5.0: Resposta mais suave
 #define LOOP_TIME 25  // Loop time in milliseconds (40Hz)
 #define WATCHDOG_THRESHOLD 100
 #define WATCHDOG_FORCE_VALUE 102
