@@ -98,6 +98,23 @@ uint8_t thisEnc = 0, lastEnc = 0;
 // Storage struct and Setup struct are defined in GlobalVariables.h
 // steerSettings and steerConfig are defined in AOG_Esp32_UM982.cpp
 
+//WAS Calibration - input is raw steer angle, output is corrected angle
+//Adjust outputWAS to compensate for mechanical non-linearity of your WAS
+float inputWAS[]  = { -50.0, -45.0, -40.0, -35.0, -30.0, -25.0, -20.0, -15.0, -10.0, -5.0, 0, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0, 35.0, 40.0, 45.0, 50.0 };
+float outputWAS[] = { -50.0, -45.0, -40.0, -35.0, -30.0, -25.0, -20.0, -15.0, -10.0, -5.0, 0, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0, 35.0, 40.0, 45.0, 50.0 };
+
+// Rob Tillaart, https://github.com/RobTillaart/MultiMap
+template<typename T>
+T multiMap(T value, T* _in, T* _out, uint8_t size)
+{
+    if (value <= _in[0]) return _out[0];
+    if (value >= _in[size - 1]) return _out[size - 1];
+    uint8_t pos = 1;
+    while (value > _in[pos]) pos++;
+    if (value == _in[pos]) return _out[pos];
+    return (value - _in[pos - 1]) * (_out[pos] - _out[pos - 1]) / (_in[pos] - _in[pos - 1]) + _out[pos - 1];
+}
+
 void steerConfigInit()
 {
   if (steerConfig.CytronDriver) 
@@ -240,6 +257,7 @@ void autosteerLoop()
       {
         currentState = 1;
         steerSwitch = 1;
+        previous = reading;  // Bug5 fix: sync previous so edge detection works on next press
       }
     }
 
@@ -382,6 +400,18 @@ void autosteerLoop()
 
     //Ackerman fix
     if (steerAngleActual < 0) steerAngleActual = (steerAngleActual * steerSettings.AckermanFix);
+
+    //WAS fault or over 25 km/h: cut steering immediately (safety)
+    if ((steerAngleActual < inputWAS[0]) || (steerAngleActual > inputWAS[20]) || gpsSpeed > 25.0f)
+    {
+        steerSwitch = 1;
+        currentState = 1;
+        previous = 0;
+        watchdogTimer = WATCHDOG_FORCE_VALUE;
+    }
+
+    //Map WAS for non-linearity correction
+    steerAngleActual = multiMap<float>(steerAngleActual, inputWAS, outputWAS, 21);
 
     if (watchdogTimer < WATCHDOG_THRESHOLD)
     {
