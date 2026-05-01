@@ -375,9 +375,9 @@ void imuHandler()
           temp = (int16_t)roll;
           itoa(temp, imuRoll, 10);
 
-          // YawRate as integer °/s
+          // YawRate as integer x10 (0.1°/s units, matching Teensy format)
           if (useYawRate) {
-              temp = (int16_t)gyroZ;
+              temp = (int16_t)(gyroZ * 10.0);
               itoa(temp, imuYawRate, 10);
           } else {
               itoa(0, imuYawRate, 10);
