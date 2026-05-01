@@ -255,7 +255,8 @@ void readBNO()
                             double tempRoll = rvcRoll;
 
                             // Apply axis swap if configured (IsUseY_Axis swaps pitch/roll)
-                            if(steerConfig.IsUseY_Axis)
+                            // Matches Teensy logic: swap happens when IsUseY_Axis=false (default)
+                            if(!steerConfig.IsUseY_Axis)
                             {
                                 roll = tempPitch;   // Pitch becomes Roll
                                 pitch = tempRoll;   // Roll becomes Pitch
