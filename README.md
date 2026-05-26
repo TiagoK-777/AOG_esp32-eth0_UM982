@@ -6,7 +6,7 @@ Este firmware é uma adaptação do sistema de autosteer para agricultura de pre
 
 - **Comunicação Ethernet:** UDP nativo via LAN8720 (WT32-ETH01).
 - **Suporte UM982:** Processamento de mensagens NMEA (GGA, VTG, HPR) e suporte a antena dupla.
-- **Fusão de Dados IMU:** Suporte ao BNO085 via I2C ou UART-RVC.
+- **Fusão de Dados IMU:** Suporte ao BNO085 via UART-RVC.
 - **Controle de Direção:** Algoritmo PID não bloqueante para motores DC (Cytron ou IBT-2).
 - **Configuração via AgIO:** Suporte total aos protocolos PGN do AgOpenGPS.
 
@@ -27,8 +27,8 @@ Este firmware é uma adaptação do sistema de autosteer para agricultura de pre
 | **GPS RX (Serial2)** | GPIO 5 | Conectar ao TX do UM982 |
 | **GPS TX (Serial2)** | GPIO 17 | Conectar ao RX do UM982 |
 | **IMU RX (Serial1)** | GPIO 2 | Modo UART-RVC (BNO085) |
-| **I2C SDA** | GPIO 32 | ADS1115 / BNO085 (Se usar I2C) |
-| **I2C SCL** | GPIO 33 | ADS1115 / BNO085 (Se usar I2C) |
+| **I2C SDA** | GPIO 32 | ADS1115|
+| **I2C SCL** | GPIO 33 | ADS1115|
 | **PWM Motor 1** | GPIO 4 | Direção Esquerda / PWM Cytron |
 | **PWM Motor 2** | GPIO 12 | Direção Direita |
 | **Direção (DIR)** | GPIO 14 | Enable/Direction para Cytron |
