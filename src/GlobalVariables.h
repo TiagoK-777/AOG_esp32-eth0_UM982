@@ -217,6 +217,9 @@ void EncoderFunc();  // May not be defined in all builds
 #define EEP_Ident 2400
 #define CONST_180_DIVIDED_BY_PI 57.2957795130823
 
+// Limite de segurança do ângulo WAS — acima disto o motor é desligado (cabo WAS pode estar danificado ou desconectado)
+constexpr float WAS_ANGLE_MAX = 45.0f;  // graus; limite físico da direção
+
 extern uint8_t autoSteerUdpData[1460];
 extern uint32_t autsteerLastTime;
 extern uint32_t currentTime;
