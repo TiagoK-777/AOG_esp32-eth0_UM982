@@ -144,29 +144,27 @@ void autosteerSetup()
   pinMode(REMOTE_PIN, INPUT);
   pinMode(DIR1_RL_ENABLE, OUTPUT);
 
-  // Setup PWM for ESP32 LEDC
-  // Configure LEDC channels for PWM
-  ledcSetup(0, 490, 8);  // Channel 0, 490Hz, 8-bit resolution (default)
-  ledcSetup(1, 490, 8);  // Channel 1, 490Hz, 8-bit resolution
-  
+  // Setup PWM for ESP32 LEDC (Core 3.x API)
+  // Configure LEDC for PWM on pins directly
   if (PWM_Frequency == 1)
   {
-    ledcSetup(0, 10000, 8);
-    ledcSetup(1, 10000, 8);
+    ledcAttach(PWM1_LPWM, 10000, 8);
+    ledcAttach(PWM2_RPWM, 10000, 8);
   }
   else if (PWM_Frequency == 2)
   {
-    ledcSetup(0, 15000, 8);
-    ledcSetup(1, 15000, 8);
+    ledcAttach(PWM1_LPWM, 15000, 8);
+    ledcAttach(PWM2_RPWM, 15000, 8);
+  }
+  else
+  {
+    ledcAttach(PWM1_LPWM, 490, 8);
+    ledcAttach(PWM2_RPWM, 490, 8);
   }
   
-  // Attach pins to LEDC channels
-  ledcAttachPin(PWM1_LPWM, 0);
-  ledcAttachPin(PWM2_RPWM, 1);
-  
   // Ensure motors are off at startup
-  ledcWrite(0, 0);
-  ledcWrite(1, 0);
+  ledcWrite(PWM1_LPWM, 0);
+  ledcWrite(PWM2_RPWM, 0);
   digitalWrite(DIR1_RL_ENABLE, LOW);
 
   //set up communication - ESP32 I2C
@@ -445,15 +443,15 @@ void autosteerLoop()
       {
         // Cytron: Zera o PWM via LEDC e coloca DIR em LOW
         digitalWrite(DIR1_RL_ENABLE, LOW); // Direção em LOW como segurança
-        ledcWrite(0, 0);  // Desliga PWM no canal 0 (PWM1_LPWM)
-        ledcWrite(1, 0);  // Desliga canal 1 também por segurança
+        ledcWrite(PWM1_LPWM, 0);  // Desliga PWM no canal 0 (PWM1_LPWM)
+        ledcWrite(PWM2_RPWM, 0);  // Desliga canal 1 também por segurança
       }
       else 
       {
         // IBT2: Desliga enable e zera ambos canais PWM
         digitalWrite(DIR1_RL_ENABLE, 0); //IBT2 disable
-        ledcWrite(0, 0);  // Desliga PWM Left
-        ledcWrite(1, 0);  // Desliga PWM Right
+        ledcWrite(PWM1_LPWM, 0);  // Desliga PWM Left
+        ledcWrite(PWM2_RPWM, 0);  // Desliga PWM Right
       }
       
       pulseCount = 0;

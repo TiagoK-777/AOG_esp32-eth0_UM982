@@ -81,7 +81,7 @@ void motorDrive(void)
     }
 
     //write out the 0 to 255 value using LEDC for ESP32
-    ledcWrite(0, pwmDrive);  // Channel 0 = PWM1_LPWM
+    ledcWrite(PWM1_LPWM, pwmDrive);  // Channel 0 = PWM1_LPWM
     pwmDisplay = pwmDrive;
   }
   else
@@ -91,14 +91,14 @@ void motorDrive(void)
 
     if (pwmDrive > 0)
     {
-      ledcWrite(1, 0);//Turn off before other one on - Channel 1 = PWM2_RPWM
-      ledcWrite(0, pwmDrive); // Channel 0 = PWM1_LPWM
+      ledcWrite(PWM2_RPWM, 0);//Turn off before other one on - Channel 1 = PWM2_RPWM
+      ledcWrite(PWM1_LPWM, pwmDrive); // Channel 0 = PWM1_LPWM
     }
     else
     {
       pwmDrive = -1 * pwmDrive;
-      ledcWrite(0, 0);//Turn off before other one on
-      ledcWrite(1, pwmDrive); // Channel 1 = PWM2_RPWM
+      ledcWrite(PWM1_LPWM, 0);//Turn off before other one on
+      ledcWrite(PWM2_RPWM, pwmDrive); // Channel 1 = PWM2_RPWM
     }
 
     pwmDisplay = pwmDrive;

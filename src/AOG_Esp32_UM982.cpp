@@ -16,7 +16,7 @@ Forked from https://github.com/AgHardware/Boards/blob/main/TeensyModules/AIO%20S
 // Ethernet for ESP32 WT32-ETH01
 #include <ETH.h>
 #include <WiFiUdp.h>
-//void monitorPerformance();
+void monitorPerformance();
 
 /************************* User Settings *************************/
 bool udpPassthrough = false;  // False = GPS neeeds to send GGA, VTG & HPR messages. True = GPS needs to send KSXT messages only.
@@ -284,87 +284,108 @@ void setup()
 
 void loop()
 {
-    // Read incoming nmea from GPS
     if (udpPassthrough)
     {
         // Modo raw: captura sentença completa NMEA e envia via UDP/USB
-        while (SerialGPS->available())
+        // Otimizado: Leitura em bloco para eliminar o overhead de chamadas sucessivas à UART
+        int bytesAvailable = SerialGPS->available();
+        
+        if (bytesAvailable > 0)
         {
-            char incoming = SerialGPS->read();
+            // Limite para não prender o loop principal caso o buffer físico esteja cheio (ex: 128 ou 256 bytes)
+            constexpr size_t MAX_RAW_BYTES_PER_CYCLE = 128;
+            size_t bytesToRead = min((size_t)bytesAvailable, MAX_RAW_BYTES_PER_CYCLE);
+            
+            uint8_t rxBuffer[128]; // Buffer temporário na Stack
+            size_t bytesRead = SerialGPS->readBytes(rxBuffer, bytesToRead);
 
-            switch (incoming) {
-                case '$':
-                case '!':  // NMEA também aceita ! como início
-                    // Nova sentença: reseta buffer
-                    msgBufLen = 0;
+            // Processa na velocidade máxima do núcleo (RAM interna)
+            for (size_t i = 0; i < bytesRead; i++)
+            {
+                char incoming = (char)rxBuffer[i];
+
+                switch (incoming) {
+                    case '$':
+                    case '!':  // NMEA também aceita ! como início
+                        // Nova sentença: reseta buffer
+                        msgBufLen = 0;
+                        gotCR = false;
+                        gotLF = false;
+                        gotDollar = true;
+                        msgBuf[msgBufLen++] = incoming;
+                        break;
+
+                    case '\r':
+                        if (gotDollar && msgBufLen < sizeof(msgBuf)) {
+                            msgBuf[msgBufLen++] = incoming;
+                            gotCR = true;
+                        }
+                        break;
+
+                    case '\n':
+                        if (gotDollar && gotCR && msgBufLen < sizeof(msgBuf)) {
+                            msgBuf[msgBufLen++] = incoming;
+                            gotLF = true;
+                        }
+                        break;
+
+                    default:
+                        if (gotDollar && msgBufLen < sizeof(msgBuf)) {
+                            msgBuf[msgBufLen++] = incoming;
+                        }
+                        break;
+                }
+
+                // Sentença completa: envia
+                if (gotCR && gotLF) {
+                    if (sendUSB) {
+                        SerialAOG.write((const uint8_t*)msgBuf, msgBufLen);
+                    }
+                    if (Ethernet_running) {
+                        Eth_udpPAOGI.beginPacket(Eth_ipDestination, portDestination);
+                        Eth_udpPAOGI.write((const uint8_t*)msgBuf, msgBufLen);
+                        Eth_udpPAOGI.endPacket();
+                    }
+
+                    blink = !blink;
+
+                    // Reseta para próxima sentença
                     gotCR = false;
                     gotLF = false;
-                    gotDollar = true;
-                    msgBuf[msgBufLen++] = incoming;
-                    break;
-
-                case '\r':
-                    if (gotDollar && msgBufLen < sizeof(msgBuf)) {
-                        msgBuf[msgBufLen++] = incoming;
-                        gotCR = true;
-                    }
-                    break;
-
-                case '\n':
-                    if (gotDollar && gotCR && msgBufLen < sizeof(msgBuf)) {
-                        msgBuf[msgBufLen++] = incoming;
-                        gotLF = true;
-                    }
-                    break;
-
-                default:
-                    if (gotDollar && msgBufLen < sizeof(msgBuf)) {
-                        msgBuf[msgBufLen++] = incoming;
-                    }
-                    break;
-            }
-
-            // Sentença completa: envia
-            if (gotCR && gotLF) {
-                if (sendUSB) {
-                    SerialAOG.write((const uint8_t*)msgBuf, msgBufLen);
-                }
-                if (Ethernet_running) {
-                    Eth_udpPAOGI.beginPacket(Eth_ipDestination, portDestination);
-                    Eth_udpPAOGI.write((const uint8_t*)msgBuf, msgBufLen);
-                    Eth_udpPAOGI.endPacket();
+                    gotDollar = false;
+                    msgBufLen = 0;
                 }
 
-                blink = !blink;
-
-                // Reseta para próxima sentença
-                gotCR = false;
-                gotLF = false;
-                gotDollar = false;
-                msgBufLen = 0;
-            }
-
-            // Proteção: se estourar buffer sem fechar, descarta
-            if (msgBufLen >= sizeof(msgBuf)) {
-                gotCR = false;
-                gotLF = false;
-                gotDollar = false;
-                msgBufLen = 0;
+                // Proteção: se estourar buffer sem fechar, descarta
+                if (msgBufLen >= sizeof(msgBuf)) {
+                    gotCR = false;
+                    gotLF = false;
+                    gotDollar = false;
+                    msgBufLen = 0;
+                }
             }
         }
     }
     else
     {
-        // Modo parser: alimenta o NMEAParser byte-a-byte
+        // Modo parser: alimenta o NMEAParser a partir da leitura rápida da Stack
         // Limite por ciclo distribui o processamento sem corromper o parser (state-machine stateful)
-        // 460800 baud = ~57 bytes/ms | loop ~8kHz = ~0.125ms/ciclo → ~7 bytes disponíveis por ciclo
-        // 64 bytes/ciclo = ~1.1ms de dados por iteração (margem segura sem overflow no buffer de 512 bytes)
-        constexpr uint8_t MAX_GPS_BYTES_PER_CYCLE = 64;
-        uint8_t bytesRead = 0;
-        while (SerialGPS->available() && bytesRead < MAX_GPS_BYTES_PER_CYCLE)
+        constexpr size_t MAX_GPS_BYTES_PER_CYCLE = 64;
+        int bytesAvailable = SerialGPS->available();
+
+        if (bytesAvailable > 0)
         {
-            parser << (char)SerialGPS->read();
-            bytesRead++;
+            // Puxa apenas o que já está garantido na memória da UART
+            size_t bytesToRead = min((size_t)bytesAvailable, MAX_GPS_BYTES_PER_CYCLE);
+            
+            uint8_t rxBuffer[64];
+            size_t bytesRead = SerialGPS->readBytes(rxBuffer, bytesToRead); 
+
+            // Injeta no Glinnes/NMEAParser rodando integralmente na SRAM
+            for (size_t i = 0; i < bytesRead; i++)
+            {
+                parser << (char)rxBuffer[i];
+            }
         }
     }
 
@@ -425,7 +446,7 @@ void loop()
     //digitalWrite(Power_on_LED, 0);           //Commented to save ESP32 pins
     //digitalWrite(Ethernet_Active_LED, 1);    //Commented to save ESP32 pins
   }
-//  monitorPerformance();
+  monitorPerformance();
 }//End Loop
 //**************************************************************************
 
