@@ -14,6 +14,10 @@ Este é um firmware de **autosteer GPS para agricultura de precisão** (AgOpenGP
 **Regras de Código:** Podem ser encontrados em:
 - [.github\instructions\firmware.instructions.md](.github\instructions\firmware.instructions.md)
 
+**Código Base (teensy) para o port:**
+- [.teensy_firmware](.teensy_firmware)
+- Sempre compare com o código original para garantir compatibilidade. E quando tiver algum bug relatado nesse port.
+
 ## Estrutura do Código
 
 ### Arquitetura Modular
