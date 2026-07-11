@@ -207,9 +207,8 @@ void setup()
   parser.setErrorHandler(errorHandler);
   parser.addHandler("G-GGA", GGA_Handler);
   parser.addHandler("G-VTG", VTG_Handler);
-  if (baseLineCheck) {
-    parser.addHandler("G-HPR", HPR_Handler);
-  }
+  parser.addHandler("G-HPR", HPR_Handler);
+
 
   delay(10);
   Serial.begin(baudAOG);
