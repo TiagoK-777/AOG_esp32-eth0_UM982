@@ -27,14 +27,16 @@ Este firmware é uma adaptação do sistema de autosteer para agricultura de pre
 | **GPS RX (Serial2)** | GPIO 5 | Conectar ao TX do UM982 |
 | **GPS TX (Serial2)** | GPIO 17 | Conectar ao RX do UM982 |
 | **IMU RX (Serial1)** | GPIO 2 | Modo UART-RVC (BNO085) |
-| **I2C SDA** | GPIO 32 | ADS1115|
-| **I2C SCL** | GPIO 33 | ADS1115|
+| **I2C SDA** | GPIO 33 | ADS1115|
+| **I2C SCL** | GPIO 32 | ADS1115|
 | **PWM Motor 1** | GPIO 4 | Direção Esquerda / PWM Cytron |
 | **PWM Motor 2** | GPIO 12 | Direção Direita |
 | **Direção (DIR)** | GPIO 14 | Enable/Direction para Cytron |
 | **Sensor WAS** | ADS1115 | Via I2C (Endereço 0x48) |
-| **Interruptor Direção**| GPIO 36 | Entrada (Requer resistor Pull-up 10k) |
-| **Sensor de Trabalho** | GPIO 15 | Input |
+| **Sensor CURRENT** | GPIO 35 | ACS723 |
+| **Remote**| GPIO 39 | Entrada (Requer resistor Pull-up 10k) |
+| **Steer**| GPIO 36 | Entrada (Requer resistor Pull-up 10k) |
+| **Work** | GPIO 15 | Entrada (Requer resistor Pull-up 10k) |
 
 ---
 
