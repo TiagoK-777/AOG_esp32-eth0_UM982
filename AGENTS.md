@@ -11,6 +11,9 @@ Este é um firmware de **autosteer GPS para agricultura de precisão** (AgOpenGP
 - IMU BNO085 via I2C ou UART-RVC para fusão de dados
 - ADC ADS1115 para sensores de WAS (Wheel Angle Sensor)
 
+**Regras de Código:** Podem ser encontrados em:
+- [.github\instructions\firmware.instructions.md](.github\instructions\firmware.instructions.md)
+
 ## Estrutura do Código
 
 ### Arquitetura Modular
@@ -184,12 +187,6 @@ Serial.println("Ethernet IP: " + ETH.localIP());
 - **Dual antenna:** HPR contém roll ($GNHPR,t,h,r,p,qual)
 
 ### BNO085 IMU
-
-**Dois modos suportados:**
-
-1. **I2C (padrão):**
-   - Address 0x4A ou 0x4B
-   - Reports: rotation vector, gyro, accel
 
 2. **UART-RVC (simplificado):**
    - Serial1 GPIO2/RX @ 115200
