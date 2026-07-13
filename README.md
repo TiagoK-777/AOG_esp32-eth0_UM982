@@ -1,3 +1,5 @@
+[📖 English version](README_EN.md)
+
 # Firmware AgOpenGPS ESP32 (WT32-ETH01 + UM982)
 
 Este firmware é uma adaptação do sistema de autosteer para agricultura de precisão (AgOpenGPS), originalmente desenvolvido para Teensy 4.1, portado para o **ESP32 WT32-ETH01**. Ele gerencia dados GNSS RTK do receptor **UM982**, processa fusão de dados de IMU (BNO085) e controla o motor de direção via PWM.
