@@ -81,6 +81,10 @@ void calcSteeringPID();
 void motorDrive();
 void ReceiveUdp();
 void SendUdp(uint8_t* data, uint8_t length, IPAddress dip, uint16_t dport);
+void nvsLoadAll();
+void nvsSaveSettings();
+void nvsSaveConfig();
+void nvsSaveNetIP();
 
 // Global variables from AOG_Teensy_UM982.cpp
 extern bool udpPassthrough;
@@ -235,7 +239,6 @@ extern uint8_t aog2Count;
 extern float sensorReading;
 extern float sensorSample;
 extern uint32_t gpsSpeedUpdateTimer;
-extern int16_t EEread;
 extern bool isRelayActiveHigh;
 extern uint8_t relay;
 extern uint8_t relayHi;

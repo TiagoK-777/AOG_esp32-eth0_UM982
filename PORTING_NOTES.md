@@ -92,9 +92,9 @@ ledcWrite(0, pwmDrive);  // Escrever PWM no canal 0
 - ❌ `F_CPU_ACTUAL` - Constante Teensy
 - ❌ `#ifdef ARDUINO_TEENSY41` - Condicionais removidas
 
-### 10. EEPROM
-- ✅ Mantida biblioteca `EEPROM.h` (ESP32 emula via flash)
-- ⚠️ Considere usar `Preferences.h` para storage mais robusto
+### 10. Storage Persistente
+- ✅ Migrado de `EEPROM.h` (deprecated) para `Preferences.h` (NVS nativo)
+- NVS: chave-valor tipado, thread-safe, sem risco de corrupção em operação prolongada
 
 ## Pinout WT32-ETH01
 
@@ -146,7 +146,7 @@ pio device monitor
 1. **Buffers Serial**: ESP32 usa buffers internos (128-256 bytes padrão) vs Teensy com buffers customizáveis
 2. **ADC Resolution**: ESP32 ADC é 12-bit vs Teensy 4.1 16-bit (já usando ADS1115 externo, não afeta)
 3. **GPIO Input Modes**: ESP32 não possui `INPUT_DISABLE`, use `INPUT` ou `INPUT_PULLUP`
-4. **EEPROM Size**: ESP32 emula EEPROM em flash (512 bytes padrão), Teensy tem EEPROM real
+4. **Persistent Storage**: `Preferences.h` (NVS) — campos tipados chave-valor, thread-safe (vs Teensy com EEPROM real)
 
 ## Próximos Passos
 
@@ -154,7 +154,7 @@ pio device monitor
 2. ⚠️ Upload no WT32-ETH01
 3. ⚠️ Testes de hardware (sensores, motor, Ethernet)
 4. ⚠️ Calibração e validação em campo
-5. ⚠️ Considerar migrar EEPROM para `Preferences.h`
+5. ✅ Migrado EEPROM para `Preferences.h` (NVS)
 6. ⚠️ Otimizar buffers serial se necessário
 
 ## Configuração AgOpenGPS

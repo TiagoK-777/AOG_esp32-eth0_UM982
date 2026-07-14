@@ -30,7 +30,7 @@ void EthernetStart()
     Serial.println("Ethernet cable is not connected - Who cares we will start ethernet anyway.");
   }
 
-  //grab the ip from EEPROM
+  //grab the ip from NVS (loaded by nvsLoadAll)
   Eth_myip[0] = networkAddress.ipOne;
   Eth_myip[1] = networkAddress.ipTwo;
   Eth_myip[2] = networkAddress.ipThree;
