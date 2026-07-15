@@ -102,6 +102,7 @@ void nvsSaveSettings()
     prefs.begin(NVS_NAMESPACE, false);
     putSettings(prefs);
     prefs.end();
+    Serial.println("Settings saved to NVS");
 }
 
 void nvsSaveConfig()
@@ -110,6 +111,7 @@ void nvsSaveConfig()
     prefs.begin(NVS_NAMESPACE, false);
     putConfig(prefs);
     prefs.end();
+    Serial.println("Config saved to NVS");
 }
 
 void nvsSaveNetIP()
@@ -118,4 +120,5 @@ void nvsSaveNetIP()
     prefs.begin(NVS_NAMESPACE, false);
     putNetIP(prefs);
     prefs.end();
+    Serial.println("Network IP saved to NVS");
 }
