@@ -145,7 +145,7 @@ void HPR_Handler()
            if (baseLineCheck)
            {
                imuDualDelta();         //Find the error between latest IMU reading and this dual message
-              dualReadyRelPos = false;  //RelPos ready is false because we just saved the error for running from the IMU
+              //dualReadyRelPos = false;  //RelPos ready is false because we just saved the error for running from the IMU
            }
 
        }
