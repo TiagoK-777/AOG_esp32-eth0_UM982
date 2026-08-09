@@ -27,8 +27,9 @@ bool baseLineCheck = false;   //Set to true to use IMU fusion with UM982. Habili
 
 // Heading correction can be enetered into the UM982 config or AOG GUI so this can be 0. If not in UM982 config or AOG GUI, set here.
 // Negative number = west, positive number = east.
-double headingcorr = 0;
+double headingcorr = 0; // Definir 900 (=90.0°, antenas esquerda/direita) ativa a correção de ROLL do IMU.
 // double headingcorr = 900;  //90deg heading correction (90deg*10)
+
 // Roll correction can be entered in the AOG GUI. If not enter roll correction here.
 // Roll correction. Negative number = left; positive number = right.
 //double rollcorr = 50;
