@@ -19,28 +19,38 @@ Firmware originalmente desenvolvido para Teensy 4.1 foi portado para ESP32 WT32-
 
 ### 3. Serial Ports (UART)
 **Teensy → ESP32:**
-- `Serial7` → `Serial2` (GPIO 5/RX, 17/TX) - GPS UM982
-- `Serial3` → `Serial1` (GPIO 4/RX, 2/TX) - RTK Radio
+- `Serial7` → `Serial2` (GPIO 5/RX, 17/TX) - GPS UM982 @ 460800
+- `Serial3` → `Serial1` (GPIO 2/RX) - **BNO085 UART-RVC** (RX only, TX = -1)
 - `Serial` → `Serial` (USB) - AgIO
 
-**Configuração:**
+> ⚠️ **Rádio RTK desabilitado:** no port atual o passthrough RTK Radio→GPS foi desativado
+> porque os pinos GPIO 4/2 do `Serial1` colidem com o **BNO085 UART-RVC** (usa GPIO2).
+> A correção RTK entra somente por **UDP** (porta 2233) e é repassada ao GPS via
+> `SerialGPS->write()`.
+
+**Configuração (em `setup()` de `AOG_Esp32_UM982.cpp`):**
 ```cpp
-SerialGPS->begin(baudGPS, SERIAL_8N1, 5, 17);
-SerialRTK.begin(baudRTK, SERIAL_8N1, 4, 2);
+SerialGPS->begin(baudGPS, SERIAL_8N1, 5, 17);   // GPS UM982 (RX=5, TX=17) @ 460800
+//SerialRTK.begin(baudRTK, SERIAL_8N1, 4, 2);   // DESABILITADO (colide com BNO085 RVC)
+SerialRVC.begin(115200, SERIAL_8N1, 2, -1);     // BNO085 UART-RVC (RX=GPIO2, TX não usado)
 ```
 
 ### 4. I2C (Wire)
 - ✅ `Wire1` → `Wire`
-- ✅ Pinos I2C definidos: SDA=GPIO32, SCL=GPIO33
-- ✅ Ajustado em: `zADS1115.cpp`, `Autosteer.ino`
-- ✅ Configuração: `Wire.begin(32, 33)`
+- ✅ Pinos I2C definidos: **SDA=GPIO33, SCL=GPIO32** (WT32-ETH01)
+- ✅ Ajustado em: `Autosteer.cpp` (`Wire.begin(33, 32)`) e `AOG_Esp32_UM982.cpp` (`#define ImuWire Wire`)
+- ✅ Configuração: `Wire.begin(33, 32);  // SDA=GPIO33, SCL=GPIO32`
+- Nota: apenas o **ADS1115** (ADC) usa a I2C — o BNO085 foi migrado para UART-RVC (GPIO2)
 
 ### 5. GPIO/Pinos
 
 #### LEDs
-| Função | Teensy | ESP32 |
+> ⚠️ **Todos os LEDs estão DESABILITADOS** no firmware atual (definições comentadas em
+> `GlobalVariables.h` para liberar GPIOs). A tabela abaixo lista o mapeamento original:
+
+| Função | Teensy | ESP32 (desabilitado) |
 |--------|--------|-------|
-| GGA Received | 13 | 2 (LED onboard) |
+| GGA Received | 13 | 2 — ⚠️ USADO pelo BNO085 RVC |
 | Power On (Red) | 5 | 14 |
 | Ethernet Active (Green) | 6 | 15 |
 | GPS Red | 9 | 12 |
@@ -48,34 +58,42 @@ SerialRTK.begin(baudRTK, SERIAL_8N1, 4, 2);
 | Autosteer Standby (Red) | 11 | 32 |
 | Autosteer Active (Green) | 12 | 33 |
 
+> ⚠️ **Não reativar LEDs nestes pinos:** GPIO2 pertence ao `SerialRVC` (BNO085 UART-RVC),
+> GPIO32/33 à **I2C** (ADS1115) e GPIO14 é o DIR do motor.
+
 #### Motor & Sensores
+> ⚠️ Atualizado conforme os valores reais em `GlobalVariables.h`:
+
 | Função | Teensy | ESP32 |
 |--------|--------|-------|
-| DIR1_RL_ENABLE | 4 | 25 |
-| PWM1_LPWM | 2 | 26 |
-| PWM2_RPWM | 3 | 27 |
-| STEERSW_PIN | 32 | 34 |
-| WORKSW_PIN | 34 | 35 |
-| REMOTE_PIN | 37 | 36 |
-| CURRENT_SENSOR | A17 | 39 |
-| PRESSURE_SENSOR | A10 | 36 |
+| DIR1_RL_ENABLE | 4 | **14** |
+| PWM1_LPWM | 2 | **4** |
+| PWM2_RPWM | 3 | **12** |
+| STEERSW_PIN | 32 | **36** (Input Only, pull-up ext. 10k) |
+| WORKSW_PIN | 34 | **15** |
+| REMOTE_PIN | 37 | **39** (Input Only, pull-up ext. 10k) |
+| CURRENT_SENSOR | A17 | **35** (ADC1) |
+| PRESSURE_SENSOR | A10 | — (Removido, não usado) |
 
 ### 6. PWM (Motor Control)
-- ✅ Substituído `analogWriteFrequency()` por `ledcSetup()`
-- ✅ Substituído `analogWrite()` por `ledcWrite()`
-- ✅ Configurados 2 canais LEDC (0 e 1)
+- ✅ Substituídos `analogWriteFrequency()`/`analogWrite()` do Teensy pela API LEDC do ESP32
+- ✅ Usa a **API nova (Arduino-ESP32 Core 3.x)**: `ledcAttach(pin, freq, res)` + `ledcWrite(pin, duty)`
+  (a API antiga `ledcSetup()`/`ledcAttachPin()`/canal foi removida no Core 3.x)
+- ✅ Canais LEDC são atribuídos automaticamente por `ledcAttach()`
 
-**Configuração:**
+**Configuração (em `autosteerSetup()` de `Autosteer.cpp`):**
 ```cpp
-ledcSetup(0, 490, 8);  // Canal 0, 490Hz, 8-bit
-ledcSetup(1, 490, 8);  // Canal 1, 490Hz, 8-bit
-ledcAttachPin(PWM1_LPWM, 0);
-ledcAttachPin(PWM2_RPWM, 1);
+// PWM_Frequency: 0 = 490Hz (padrão), 1 = 10kHz, 2 = 15kHz
+ledcAttach(PWM1_LPWM, 490, 8);   // Pin-based, canal atribuído automaticamente
+ledcAttach(PWM2_RPWM, 490, 8);
+ledcWrite(PWM1_LPWM, 0);         // Garante motor desligado no boot
+ledcWrite(PWM2_RPWM, 0);
 ```
 
-**Uso:**
+**Uso (em `motorDrive()` de `AutosteerPID.cpp`):**
 ```cpp
-ledcWrite(0, pwmDrive);  // Escrever PWM no canal 0
+ledcWrite(PWM1_LPWM, pwmDrive);  // Escrita por PINO (não por canal)
+ledcWrite(PWM2_RPWM, pwmDrive);
 ```
 
 ### 7. Manipulação de Portas
@@ -124,22 +142,33 @@ pio run -e wt32-eth01 -t upload
 pio device monitor
 ```
 
+### Upload via ESP Flash Download Tool
+
+1. Baixar [Flash Download Tools](https://www.espressif.com/en/support/download/other-tools)
+2. Selecionar **ESP32** e **Develop**
+3. Carregar binários de `.pio\build\wt32-eth01\`:
+   - `bootloader.bin` @ `0x1000`
+   - `partitions.bin` @ `0x8000`
+   - `firmware.bin` @ `0x10000`
+4. Config: **SPI 40MHz, DIO**
+5. Conectar via USB e clicar **START**
+
 ## Testes Recomendados
 
 ### Hardware
-1. ✅ Verificar conexão Ethernet (LED verde deve acender)
-2. ⚠️ Testar comunicação Serial2 com GPS UM982
-3. ⚠️ Testar comunicação Serial1 com rádio RTK
-4. ⚠️ Verificar I2C: BNO08x IMU e ADS1115 ADC
-5. ⚠️ Testar PWM motor (canais LEDC)
-6. ⚠️ Verificar LEDs de status
+1. ✅ Verificar conexão Ethernet (link no módulo WT32-ETH01)
+2. ✅ Testar comunicação Serial2 com GPS UM982 (@ 460800)
+3. ✅  Testar Serial1 com BNO085 UART-RVC (GPIO2, 115200) — rádio RTK desabilitado
+4. ✅ Verificar I2C: ADS1115 ADC (SDA=33, SCL=32)
+5. ✅ Testar PWM motor (ledcWrite para PWM1_LPWM / PWM2_RPWM)
+6. ⚠️ LEDs de status: nenhum — desabilitados para liberar pinos
 
 ### Software
-1. ⚠️ Confirmar recepção UDP NTRIP (porta 2233)
-2. ⚠️ Confirmar envio/recepção UDP Autosteer (porta 8888)
-3. ⚠️ Verificar envio dados GPS para AgOpenGPS (porta 9999)
-4. ⚠️ Testar parsing NMEA (GGA, VTG, HPR)
-5. ⚠️ Validar controle PID autosteer
+1. ✅ Confirmar recepção UDP NTRIP (porta 2233)
+2. ✅ Confirmar envio/recepção UDP Autosteer (porta 8888)
+3. ✅ Verificar envio dados GPS para AgOpenGPS (porta 9999)
+4. ✅ Testar parsing NMEA (GGA, VTG, HPR)
+5. ✅ Validar controle PID autosteer
 
 ## Limitações Conhecidas
 
@@ -150,12 +179,12 @@ pio device monitor
 
 ## Próximos Passos
 
-1. ⚠️ Compilar e resolver warnings/erros
-2. ⚠️ Upload no WT32-ETH01
-3. ⚠️ Testes de hardware (sensores, motor, Ethernet)
-4. ⚠️ Calibração e validação em campo
+1. ✅ Compilar e resolver warnings/erros
+2. ✅ Upload no WT32-ETH01
+3. ✅ Testes de hardware (sensores, motor, Ethernet)
+4. ✅ Calibração e validação em campo
 5. ✅ Migrado EEPROM para `Preferences.h` (NVS)
-6. ⚠️ Otimizar buffers serial se necessário
+6. ✅ Otimizar buffers serial se necessário
 
 ## Configuração AgOpenGPS
 
@@ -165,6 +194,33 @@ Manter mesma configuração de rede:
 - Porta NTRIP: 2233
 - Porta Autosteer: 8888
 - Porta AOG: 9999
+
+## Uso Rápido
+
+1. **Conectar hardware:**
+   - GPS UM982 → `Serial2` (RX=5, TX=17) @ 460800
+   - BNO085 → `Serial1` UART-RVC (RX=GPIO2, sem TX) @ 115200
+   - ADS1115 → I2C (SDA=33, SCL=32, endereço 0x48)
+   - Motor → GPIO14 (DIR), GPIO4 (PWM1), GPIO12 (PWM2)
+   - Rádio RTK → desabilitado (correção via UDP, porta 2233)
+   - Cabo Ethernet (LAN8720)
+
+2. **Configurar AgOpenGPS:** Settings → GPS → UDP → IP `192.168.137.126`, porta `9999`
+3. **Configurar NTRIP** em AgOpenGPS (envia para porta 2233)
+4. **Serial monitor** (115200) deve mostrar:
+   ```text
+   Ethernet status OK
+   IP set Manually: 192.168.137.126
+   ```
+
+## Solução de Problemas
+
+- **Ethernet não conecta:** verificar cabo RJ45, `ping 192.168.137.126`, PC na rede 192.168.137.x
+- **GPS sem correção RTK:** porta 2233 liberada no firewall; AgOpenGPS enviando NTRIP
+- **Motor não responde:** conferir GPIO14 (DIR), GPIO4 (PWM1), GPIO12 (PWM2); o monitor mostra `pwmDisplay`
+- **BNO085 sem resposta:** verificar fiação UART-RVC no GPIO2 @ 115200; firmware loga `No RVC packets detected!`
+- **ADS1115 não encontrado:** I2C SDA=33 / SCL=32, endereço 0x48; firmware loga `ADC Connecton FAILED!`
+- **Resets constantes:** fonte insuficiente (mín. 1A @ 5V); desconectar periféricos e testar isoladamente
 
 ## Referências
 

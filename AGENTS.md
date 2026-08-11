@@ -81,7 +81,7 @@ pio device monitor                 # Monitor serial 115200
 
 ### Mapeamento de Hardware ESP32
 
-**Referência crítica:** [PORTING_NOTES.md](PORTING_NOTES.md) e [README_ESP32.md](README_ESP32.md)
+**Referência crítica:** [PORTING_NOTES.md](PORTING_NOTES.md)
 
 **Serial/UART:**
 - `Serial2` (GPIO5/RX, GPIO17/TX) @ 460800 → GPS UM982
@@ -170,11 +170,11 @@ Serial.println("Ethernet IP: " + ETH.localIP());
 
 ### Teste de Hardware
 
-**Checklist [README_ESP32.md](README_ESP32.md#L99):**
+**Checklist [PORTING_NOTES.md](PORTING_NOTES.md#testes-recomendados):**
 1. Testar Ethernet: `ping 192.168.137.126`
 2. GPS NMEA: Monitor Serial2 @ 460800
-3. I2C scan: `Wire.beginTransmission(0x4A)` para BNO08x
-4. ADC: `adc.getConversion()` com +5V no ADS1115
+3. BNO085 RVC: `Serial1` (GPIO2 @ 115200) — pacotes `0xAA` 19 bytes
+4. ADC: `adc.getConversion()` com +5V no ADS1115 (I2C 0x48)
 
 ## Integrações Externas
 

@@ -14,6 +14,22 @@ Este firmware é uma adaptação do sistema de autosteer para agricultura de pre
 
 ---
 
+## Diferenças vs Teensy 4.1
+
+### Hardware
+- ✅ CPU: 240MHz (vs Teensy 600MHz) — suficiente
+- ✅ RAM: 320KB (vs Teensy 1MB) — suficiente
+- ⚠️ ADC: 12-bit (vs 16-bit) — usa ADS1115 externo
+- ⚠️ UART: 2 HW (vs 8 no Teensy) — suficiente
+
+### Software
+- ✅ PWM via LEDC (vs FlexPWM)
+- ✅ Preferences.h / NVS para storage persistente (vs EEPROM real)
+- ✅ Ethernet nativa LAN8720 (vs PHY externo)
+- ⚠️ Buffers serial menores (configurável)
+
+---
+
 ## 🛠️ Requisitos de Hardware
 
 - **Microcontrolador:** WT32-ETH01 (ESP32 com Ethernet).
