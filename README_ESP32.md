@@ -218,7 +218,7 @@ pio run -e wt32-eth01 -t upload && pio device monitor
 
 ### Software
 - ✅ PWM via LEDC (vs FlexPWM)
-- ✅ EEPROM emulado em flash (vs EEPROM real)
+- ✅ Preferences.h / NVS para storage persistente (vs EEPROM real)
 - ✅ Ethernet nativa LAN8720 (vs PHY externo)
 - ⚠️ Buffers serial menores (configurável)
 

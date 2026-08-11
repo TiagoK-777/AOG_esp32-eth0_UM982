@@ -216,7 +216,7 @@ Serial.println("Ethernet IP: " + ETH.localIP());
 
 1. Editar struct `Storage` em [src/GlobalVariables.h](src/GlobalVariables.h#L32)
 2. Valores em `steerSettings`: Kp, Ki, Kd, minPWM, highPWM
-3. Salvar em EEPROM via comando UDP (PGN 200/201)
+3. Salvar em NVS via Preferences.h (nvsSaveSettings/nvsSaveConfig) (PGN 200/201)
 
 ---
 

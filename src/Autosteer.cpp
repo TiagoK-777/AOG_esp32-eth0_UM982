@@ -19,7 +19,6 @@
 //Connect ground only for cytron, Connect Ground and +5v for IBT2
 
 #include <Wire.h>
-#include <EEPROM.h>
 #include "zADS1115.h"
 ADS1115_lite adc(ADS1115_DEFAULT_ADDRESS);     // Use this for the 16-bit version ADS1115
 
@@ -56,9 +55,6 @@ float sensorReading;
 float sensorSample;
 
 uint32_t gpsSpeedUpdateTimer = 0;
-
-//EEPROM
-int16_t EEread = 0;
 
 //Relays
 bool isRelayActiveHigh = true;
@@ -185,23 +181,7 @@ void autosteerSetup()
   //50Khz I2C
   //TWBR = 144;   //Is this needed?
 
-  EEPROM.begin(512);                  // Initialize EEPROM for ESP32
-  EEPROM.get(0, EEread);              // read identifier
-
-  if (EEread != EEP_Ident)            // check on first start and write EEPROM
-  {
-    EEPROM.put(0, EEP_Ident);
-    EEPROM.put(10, steerSettings);
-    EEPROM.put(40, steerConfig);
-    EEPROM.put(60, networkAddress);
-    EEPROM.commit();                  // Commit changes to flash
-  }
-  else
-  {
-    EEPROM.get(10, steerSettings);     // read the Settings
-    EEPROM.get(40, steerConfig);
-    EEPROM.get(60, networkAddress); 
-  }
+  nvsLoadAll();
 
   steerSettingsInit();
   steerConfigInit();
@@ -652,9 +632,8 @@ void ReceiveUdp()
                 //crc
                 //autoSteerUdpData[13];
 
-                //store in EEPROM
-                EEPROM.put(10, steerSettings);
-                EEPROM.commit();
+                //store in NVS
+                nvsSaveSettings();
 
                 // Re-Init steer settings
                 steerSettingsInit();
@@ -688,8 +667,8 @@ void ReceiveUdp()
                 //crc
                 //autoSteerUdpData[13];
 
-                EEPROM.put(40, steerConfig);
-                EEPROM.commit();
+                //store in NVS
+                nvsSaveConfig();
 
                 // Re-Init
                 steerConfigInit();
@@ -725,9 +704,8 @@ void ReceiveUdp()
               networkAddress.ipTwo = autoSteerUdpData[8];
               networkAddress.ipThree = autoSteerUdpData[9];
         
-              //save in EEPROM and restart
-              EEPROM.put(60, networkAddress);
-              EEPROM.commit();
+              //save in NVS and restart
+              nvsSaveNetIP();
               ESP.restart(); // Reset ESP32
               }
             }//end 201
