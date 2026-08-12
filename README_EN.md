@@ -14,6 +14,22 @@ This firmware is an adaptation of the AgOpenGPS precision agriculture autosteer 
 
 ---
 
+## Differences vs Teensy 4.1
+
+### Hardware
+- ✅ CPU: 240MHz (vs Teensy 600MHz) — sufficient
+- ✅ RAM: 320KB (vs Teensy 1MB) — sufficient
+- ⚠️ ADC: 12-bit (vs 16-bit) — uses external ADS1115
+- ⚠️ UART: 2 HW (vs 8 on Teensy) — sufficient
+
+### Software
+- ✅ PWM via LEDC (vs FlexPWM)
+- ✅ Preferences.h / NVS for persistent storage (vs real EEPROM)
+- ✅ Native LAN8720 Ethernet (vs external PHY)
+- ⚠️ Smaller serial buffers (configurable)
+
+---
+
 ## 🛠️ Hardware Requirements
 
 - **Microcontroller:** WT32-ETH01 (ESP32 with Ethernet).
@@ -65,8 +81,13 @@ Key settings can be adjusted at the top of `src/AOG_Esp32_UM982.cpp`:
 
 - `udpPassthrough`: Defines whether GPS sends full NMEA or only KSXT.
 - `makeOGI`: `true` for PAOGI messages, `false` for PANDA.
-- `baseLineCheck`: Enables dual antenna fusion if using UM982 with two antennas.
+- `baseLineCheck`: `true` Enables dual antenna + IMU fusion if using UM982 with two antennas.
 - `filterRoll` / `filterHeading`: Enables Kalman filters for smoothing.
+- `headingcorr`: Set to 900 (=90.0°, left/right antennas) to activate IMU ROLL correction.
+
+Note:
+- ⚠️ Dual antenna mode has not yet been field tested. If you find a problem, please report it in the Issues tab.
+- ✅ Single antenna mode has been tested and works perfectly.
 
 ### Network Configuration (UDP)
 
@@ -84,6 +105,10 @@ Monitor the serial output at **115200 baud**.
 - If the GPS is connected, processed NMEA messages will appear according to the configuration.
 
 ---
+
+## Found a problem or have suggestions?
+- Open a GitHub **Issue** with details of the problem or suggestion.
+- Or make the adjustment and submit a **Pull Request**.
 
 ## 📜 License
 

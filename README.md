@@ -80,9 +80,14 @@ Este projeto utiliza o **PlatformIO**.
 As configurações principais podem ser ajustadas no topo do arquivo `src/AOG_Esp32_UM982.cpp`:
 
 - `udpPassthrough`: Define se o GPS envia NMEA completo ou apenas KSXT.
-- `makeOGI`: `true` para mensagens PAOGI, `false` para PANDA.
-- `baseLineCheck`: Habilita fusão de antena dupla se estiver usando UM982 com duas antenas.
+- `makeOGI`: `true` para mensagens PAOGI (necessário para o modo dual antena), `false` para PANDA.
+- `baseLineCheck`: `true` habilita a fusão de antena dupla + IMU se estiver usando UM982 com duas antenas.
 - `filterRoll` / `filterHeading`: Habilita filtros de Kalman para suavização.
+- `headingcorr`: Definir 900 (=90.0°, antenas esquerda/direita) ativa a correção de ROLL do IMU.
+
+Observação:
+- ⚠️ O modo dual antena ainda não foi testado em campo, se encontrar um problema, reporte na aba de Issues.
+- ✅ O modo single antena já foi testado e funciona perfeitamente. 
 
 ### Configuração de Rede (UDP)
 
@@ -100,6 +105,10 @@ Monitore a saída serial em **115200 baud**.
 - Se o GPS estiver conectado, mensagens NMEA processadas aparecerão conforme a configuração.
 
 ---
+
+## Encontrou algum problema ou tem sugestões?
+- Abra uma **Issue** no GitHub com detalhes do problema ou sugestão.
+- Ou faça o ajuste e submeta um **Pull Request**.
 
 ## 📜 Licença
 
