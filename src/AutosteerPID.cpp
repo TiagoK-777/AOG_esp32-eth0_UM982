@@ -64,12 +64,12 @@ void calcSteeringPID(void)
 
 void motorDrive(void)
 {
-  // Used with Cytron MD30C Driver
+  // Used with Cytron MD13S Driver
   // Steering Motor
   // Dir + PWM Signal
   if (steerConfig.CytronDriver)
   {
-    // Cytron MD30C Driver Dir + PWM Signal
+    // Cytron MD13S Driver Dir + PWM Signal
     if (pwmDrive >= 0)
     {
       digitalWrite(DIR1_RL_ENABLE, HIGH);  //set the correct direction

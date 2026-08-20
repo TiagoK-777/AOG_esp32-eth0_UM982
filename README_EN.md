@@ -36,7 +36,7 @@ This firmware is an adaptation of the AgOpenGPS precision agriculture autosteer 
 - **GNSS:** Unicore Communications UM982 (RTK).
 - **IMU:** BNO085 (UART-RVC mode recommended).
 - **ADC:** ADS1115 (for Wheel Angle Sensor - WAS reading).
-- **Motor Driver:** Cytron MD30C or IBT-2.
+- **Motor Driver:** Cytron MD13S or IBT-2.
 
 ### Pinout (WT32-ETH01 Mapping)
 

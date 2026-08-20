@@ -36,7 +36,7 @@ Este firmware é uma adaptação do sistema de autosteer para agricultura de pre
 - **GNSS:** Unicore Communications UM982 (RTK).
 - **IMU:** BNO085 (recomendado modo UART-RVC).
 - **ADC:** ADS1115 (para leitura do sensor de ângulo de roda - WAS).
-- **Driver de Motor:** Cytron MD30C ou IBT-2.
+- **Driver de Motor:** Cytron MD13S ou IBT-2.
 
 ### Pinagem (Mapeamento WT32-ETH01)
 

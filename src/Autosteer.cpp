@@ -398,7 +398,7 @@ void autosteerLoop()
       //Enable H Bridge for IBT2, hyd aux, etc for cytron
       if (steerConfig.CytronDriver)
       {
-        // Cytron MD30C: Controle via DIR1_RL_ENABLE e PWM1_LPWM apenas
+        // Cytron MD13S: Controle via DIR1_RL_ENABLE e PWM1_LPWM apenas
         // Não precisa controlar PWM2_RPWM
       }
       else digitalWrite(DIR1_RL_ENABLE, 1); //IBT2 enable
