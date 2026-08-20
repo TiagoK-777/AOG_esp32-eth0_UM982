@@ -314,6 +314,8 @@ void autosteerLoop()
         // ACS723 Bidirectional: 0A = VCC/2 (~2048 on 12-bit ADC)
         // Subtract offset, take absolute, and scale to 0-255
         sensorSample = abs(1992.0f - sensorSample) * 0.155f;
+//        int rawAdc = analogRead(CURRENT_SENSOR_PIN);
+//        Serial.println(rawAdc);
       }
 
       sensorReading = sensorReading * 0.7 + sensorSample * 0.3;
