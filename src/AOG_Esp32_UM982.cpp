@@ -270,7 +270,7 @@ void setup()
   Serial.print("useBNO08x = ");
   Serial.println(useBNO08x);
 
-  Serial.println("\r\nFirmware version: 1.0");
+  Serial.println("\r\nFirmware version: 1.1");
 
   Serial.println("\r\nEnd setup, waiting for GPS...\r\n");
   
