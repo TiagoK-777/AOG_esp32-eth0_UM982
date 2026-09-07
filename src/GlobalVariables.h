@@ -188,7 +188,7 @@ extern HardwareSerial* SerialGPS;
 
 // Serial port defines moved from AOG_Esp32_UM982.cpp
 #define SerialAOG Serial                //AgIO USB connection
-#define SerialRTK Serial1               //RTK radio (GPIO 4/RX, 2/TX)
+//#define SerialRTK Serial1               //RTK radio (GPIO 4/RX, 2/TX)
 
 // Function declarations for optional features
 void EncoderFunc();  // May not be defined in all builds
