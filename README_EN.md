@@ -4,6 +4,15 @@
 
 This firmware is an adaptation of the AgOpenGPS precision agriculture autosteer system, originally developed for Teensy 4.1, ported to the **ESP32 WT32-ETH01**. It manages RTK GNSS data from the **UM982** receiver, processes IMU sensor fusion (BNO085), and controls the steering motor via PWM.
 
+## Organization and execution
+
+Four application tasks handle steering, navigation, networking and supervision. The Arduino `loop()` handles maintenance. Shared state uses protected snapshots; UDP and RTK use dedicated buffers. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for ownership, timing and validation details.
+
+```sh
+pio run -e wt32-eth01
+python test/run_native.py
+```
+
 ## 🚀 Key Features
 
 - **Ethernet Communication:** Native UDP via LAN8720 (WT32-ETH01).
@@ -77,7 +86,7 @@ This project uses **PlatformIO**.
 
 ## ⚙️ Firmware Configuration
 
-Key settings can be adjusted at the top of `src/AOG_Esp32_UM982.cpp`:
+Key settings can be adjusted at the top of `src/main.cpp`:
 
 - `udpPassthrough`: Defines whether GPS sends full NMEA or only KSXT.
 - `makeOGI`: `true` for PAOGI messages, `false` for PANDA.
@@ -87,7 +96,7 @@ Key settings can be adjusted at the top of `src/AOG_Esp32_UM982.cpp`:
 
 Note:
 - ⚠️ Dual antenna mode has not yet been field tested. If you find a problem, please report it in the Issues tab.
-- ✅ Single antenna mode has been tested and works perfectly.
+- Single antenna mode was validated in the previous firmware. This modular version has passed builds and host tests; bench and field validation are still required.
 
 ### Network Configuration (UDP)
 

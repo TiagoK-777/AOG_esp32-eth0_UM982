@@ -4,6 +4,15 @@
 
 Este firmware é uma adaptação do sistema de autosteer para agricultura de precisão (AgOpenGPS), originalmente desenvolvido para Teensy 4.1, portado para o **ESP32 WT32-ETH01**. Ele gerencia dados GNSS RTK do receptor **UM982**, processa fusão de dados de IMU (BNO085) e controla o motor de direção via PWM.
 
+## Organização e execução
+
+A arquitetura modular usa quatro tasks próprias (controle, navegação, rede e supervisão), com manutenção no `loop()`. O estado é publicado por snapshots protegidos; UDP e RTK usam buffers próprios. A organização completa, os prazos e os testes estão em [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+```sh
+pio run -e wt32-eth01
+python test/run_native.py
+```
+
 ## 🚀 Funcionalidades Principais
 
 - **Comunicação Ethernet:** UDP nativo via LAN8720 (WT32-ETH01).
@@ -77,7 +86,7 @@ Este projeto utiliza o **PlatformIO**.
 
 ## ⚙️ Configuração do Firmware
 
-As configurações principais podem ser ajustadas no topo do arquivo `src/AOG_Esp32_UM982.cpp`:
+As configurações principais podem ser ajustadas no topo do arquivo `src/main.cpp`:
 
 - `udpPassthrough`: Define se o GPS envia NMEA completo ou apenas KSXT.
 - `makeOGI`: `true` para mensagens PAOGI (necessário para o modo dual antena), `false` para PANDA.
@@ -87,7 +96,7 @@ As configurações principais podem ser ajustadas no topo do arquivo `src/AOG_Es
 
 Observação:
 - ⚠️ O modo dual antena ainda não foi testado em campo, se encontrar um problema, reporte na aba de Issues.
-- ✅ O modo single antena já foi testado e funciona perfeitamente. 
+- O modo single antena foi validado na versão anterior. Esta reorganização passou por compilação e testes nativos; validação em bancada e campo ainda é necessária.
 
 ### Configuração de Rede (UDP)
 

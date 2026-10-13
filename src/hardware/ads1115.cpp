@@ -7,7 +7,7 @@
 /**************************************************************************/
 
 #include "Arduino.h"
-#include "zADS1115.h"
+#include "hardware/ads1115.h"
 
 /**************************************************************************/
 /*!
@@ -31,9 +31,8 @@ ADS1115_lite::ADS1115_lite(uint8_t i2cAddress) {
 bool ADS1115_lite::testConnection() {
   Wire.beginTransmission(_i2cAddress);
   Wire.write(ADS1115_REG_POINTER_CONVERT);
-  Wire.endTransmission();
-  Wire.requestFrom(_i2cAddress, (uint8_t)2);
-  if (Wire.available()) {
+  if (Wire.endTransmission() != 0) return false;
+  if (Wire.requestFrom(_i2cAddress, (uint8_t)2) == 2) {
     return 1;
   }
   return 0;
@@ -91,7 +90,7 @@ void ADS1115_lite::setSampleRate(uint8_t rate) {
 		Trigger Conversion to Read later
 */
 /**************************************************************************/
-void ADS1115_lite::triggerConversion() {
+bool ADS1115_lite::triggerConversion() {
 
   //Bits 0 through 4 deal with the comparator function.  The combined default value for these bits is 0x0003
   uint16_t config = 0x0003; // Disable the comparator (default val)
@@ -116,7 +115,7 @@ void ADS1115_lite::triggerConversion() {
   Wire.write(ADS1115_REG_POINTER_CONFIG);
   Wire.write((uint8_t)(config >> 8));
   Wire.write((uint8_t)(config & 0xFF));
-  Wire.endTransmission();
+  return Wire.endTransmission() == 0;
 }
 
 /**************************************************************************/
@@ -124,18 +123,15 @@ void ADS1115_lite::triggerConversion() {
     @brief  Waits and returns the  last conversion results
 */
 /**************************************************************************/
-int16_t ADS1115_lite::getConversion() {  // Wait for the conversion to complete
-  //do {
-  //  } while(!isConversionDone());  Brian Tee - no waiting
-
-  // Read the conversion results
-  Wire.beginTransmission(_i2cAddress); //Sets the Address of the ADS1115.
-  Wire.write(ADS1115_REG_POINTER_CONVERT); //queue the data to be sent, in this case modify the pointer register so that the following RequestFrom reads the conversion register
-  Wire.endTransmission(); //Send the data
-
-  Wire.requestFrom(_i2cAddress, (uint8_t)2); //Request the 2 byte conversion register
-  return ((Wire.read() << 8) | Wire.read()); //Read each byte.  Shift the first byte read 8 bits to the left and OR it with the second byte.
-
+bool ADS1115_lite::getConversion(int16_t& result) {
+  Wire.beginTransmission(_i2cAddress);
+  Wire.write(ADS1115_REG_POINTER_CONVERT);
+  if (Wire.endTransmission() != 0) return false;
+  if (Wire.requestFrom(_i2cAddress, static_cast<uint8_t>(2)) != 2) return false;
+  uint8_t high = Wire.read();
+  uint8_t low = Wire.read();
+  result = static_cast<int16_t>((static_cast<uint16_t>(high) << 8) | low);
+  return true;
 }
 /**************************************************************************/
 /*!

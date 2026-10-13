@@ -1,5 +1,9 @@
 # Notas de Portagem: Teensy 4.1 → ESP32 WT32-ETH01
 
+## Organização atual
+
+A entrada principal é `src/main.cpp`. Consulte [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) para tasks, snapshots, filas, persistência e verificação. Pinagem e recursos do WT32-ETH01 permanecem os mesmos. A API de ADC agora retorna sucesso e entrega a leitura por referência; não usar o retorno como valor do WAS.
+
 ## Resumo
 Firmware originalmente desenvolvido para Teensy 4.1 foi portado para ESP32 WT32-ETH01 mantendo funcionalidade de comunicação UDP via Ethernet para o sistema AgOpenGPS.
 
@@ -26,27 +30,27 @@ Firmware originalmente desenvolvido para Teensy 4.1 foi portado para ESP32 WT32-
 > ⚠️ **Rádio RTK desabilitado:** no port atual o passthrough RTK Radio→GPS foi desativado
 > porque os pinos GPIO 4/2 do `Serial1` colidem com o **BNO085 UART-RVC** (usa GPIO2).
 > A correção RTK entra somente por **UDP** (porta 2233) e é repassada ao GPS via
-> `SerialGPS->write()`.
+> `FIFO RTK → SerialGPS->write() na task de navegação`.
 
-**Configuração (em `setup()` de `AOG_Esp32_UM982.cpp`):**
+**Configuração (em `setup()` de `gps/gps_task.cpp`):**
 ```cpp
 SerialGPS->begin(baudGPS, SERIAL_8N1, 5, 17);   // GPS UM982 (RX=5, TX=17) @ 460800
 //SerialRTK.begin(baudRTK, SERIAL_8N1, 4, 2);   // DESABILITADO (colide com BNO085 RVC)
-SerialRVC.begin(115200, SERIAL_8N1, 2, -1);     // BNO085 UART-RVC (RX=GPIO2, TX não usado)
+SerialRVC.begin(115200, SERIAL_8N1, 2, -1); // src/imu/rvc.cpp     // BNO085 UART-RVC (RX=GPIO2, TX não usado)
 ```
 
 ### 4. I2C (Wire)
 - ✅ `Wire1` → `Wire`
 - ✅ Pinos I2C definidos: **SDA=GPIO33, SCL=GPIO32** (WT32-ETH01)
-- ✅ Ajustado em: `Autosteer.cpp` (`Wire.begin(33, 32)`) e `AOG_Esp32_UM982.cpp` (`#define ImuWire Wire`)
+- ✅ Inicializado em `src/autosteer/autosteer_task.cpp`; acessado pelo driver `src/hardware/ads1115.cpp`.
 - ✅ Configuração: `Wire.begin(33, 32);  // SDA=GPIO33, SCL=GPIO32`
 - Nota: apenas o **ADS1115** (ADC) usa a I2C — o BNO085 foi migrado para UART-RVC (GPIO2)
 
 ### 5. GPIO/Pinos
 
 #### LEDs
-> ⚠️ **Todos os LEDs estão DESABILITADOS** no firmware atual (definições comentadas em
-> `GlobalVariables.h` para liberar GPIOs). A tabela abaixo lista o mapeamento original:
+> ⚠️ **Todos os LEDs estão DESABILITADOS** no firmware atual; `src/config/pinout.h`
+> contém somente os pinos utilizados. A tabela abaixo lista o mapeamento original:
 
 | Função | Teensy | ESP32 (desabilitado) |
 |--------|--------|-------|
@@ -62,7 +66,7 @@ SerialRVC.begin(115200, SERIAL_8N1, 2, -1);     // BNO085 UART-RVC (RX=GPIO2, TX
 > GPIO32/33 à **I2C** (ADS1115) e GPIO14 é o DIR do motor.
 
 #### Motor & Sensores
-> ⚠️ Atualizado conforme os valores reais em `GlobalVariables.h`:
+> ⚠️ Atualizado conforme os valores reais em `config/pinout.h`:
 
 | Função | Teensy | ESP32 |
 |--------|--------|-------|
@@ -81,7 +85,7 @@ SerialRVC.begin(115200, SERIAL_8N1, 2, -1);     // BNO085 UART-RVC (RX=GPIO2, TX
   (a API antiga `ledcSetup()`/`ledcAttachPin()`/canal foi removida no Core 3.x)
 - ✅ Canais LEDC são atribuídos automaticamente por `ledcAttach()`
 
-**Configuração (em `autosteerSetup()` de `Autosteer.cpp`):**
+**Configuração (em `autosteer::setup()` de `autosteer/autosteer_task.cpp`):**
 ```cpp
 // PWM_Frequency: 0 = 490Hz (padrão), 1 = 10kHz, 2 = 15kHz
 ledcAttach(PWM1_LPWM, 490, 8);   // Pin-based, canal atribuído automaticamente
@@ -90,7 +94,7 @@ ledcWrite(PWM1_LPWM, 0);         // Garante motor desligado no boot
 ledcWrite(PWM2_RPWM, 0);
 ```
 
-**Uso (em `motorDrive()` de `AutosteerPID.cpp`):**
+**Uso (em `motor::drive()` de `hardware/motor_pwm.cpp`):**
 ```cpp
 ledcWrite(PWM1_LPWM, pwmDrive);  // Escrita por PINO (não por canal)
 ledcWrite(PWM2_RPWM, pwmDrive);
@@ -112,7 +116,7 @@ ledcWrite(PWM2_RPWM, pwmDrive);
 
 ### 10. Storage Persistente
 - ✅ Migrado de `EEPROM.h` (deprecated) para `Preferences.h` (NVS nativo)
-- NVS: chave-valor tipado, thread-safe, sem risco de corrupção em operação prolongada
+- NVS: chave-valor tipado. Persistência ocorre após corte confirmado pelo controle; falha mantém a direção bloqueada.
 
 ## Pinout WT32-ETH01
 

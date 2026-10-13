@@ -518,35 +518,20 @@ template <size_t S> class NMEAParser {
       else return false;
     }
 
-    bool getArg(uint8_t num, char *arg)
+    template<size_t N> bool getArg(uint8_t num, char (&arg)[N])
     {
+      arg[0] = '\0';
       if (validArgNum(num)) {
         uint8_t startPos = startArgPos(num);
         uint8_t endPos = endArgPos(num);
-        {
-          NMEAParserStringify stfy(this, endPos);
-          strcpy(arg, &mBuffer[startPos]);
-        }
+        size_t length = endPos - startPos;
+        if (length >= N) return false;
+        memcpy(arg, &mBuffer[startPos], length);
+        arg[length] = '\0';
         return true;
       }
       else return false;
     }
-
-#ifdef ARDUINO
-    bool getArg(uint8_t num, String &arg)
-    {
-      if (validArgNum(num)) {
-        uint8_t startPos = startArgPos(num);
-        uint8_t endPos = endArgPos(num);
-        {
-          NMEAParserStringify stfy(this, endPos);
-          arg = &mBuffer[startPos];
-        }
-        return true;
-      }
-      else return false;
-    }
-#endif
 
     bool getArg(uint8_t num, int &arg)
     {
@@ -591,21 +576,6 @@ template <size_t S> class NMEAParser {
       }
       else return false;
     }
-
-#ifdef ARDUINO
-    bool getType(String &arg)
-    {
-      if (mIndex > 0) {
-        uint8_t endPos = startArgPos(0);
-        {
-          NMEAParserStringify stfy(this, endPos);
-          arg = mBuffer;
-        }
-        return true;
-      }
-      else return false;
-    }
-#endif
 
     bool getType(uint8_t inIndex, char &outTypeChar)
     {
