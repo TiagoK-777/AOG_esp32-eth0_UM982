@@ -70,6 +70,7 @@ void publishCycle(uint32_t startUs) {
     status.steerSwitch = steerSwitch;
     status.switchByte = (remoteSwitch << 2) | (steerSwitch << 1) | workSwitch;
     status.completedMs = millis();
+    status.guidanceTransitionSequence = consumedTransition;
     ++status.cycles;
     uint32_t duration = micros() - startUs;
     if (duration > status.maxCycleUs) status.maxCycleUs = duration;
@@ -94,6 +95,7 @@ void applyPending() {
     update.values = values;
     pending::requestPersistence(update);
     status.engaged = false; status.pwmDisplay = 0; status.steerSwitch = 1;
+    status.switchByte = (remoteSwitch << 2) | (steerSwitch << 1) | workSwitch;
     state::publishSteer(status);
 }
 }

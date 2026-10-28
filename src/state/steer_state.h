@@ -11,6 +11,7 @@ struct SteerStatus {
     uint8_t steerSwitch = 1;
     uint32_t completedMs = 0;
     uint32_t cycles = 0;
+    uint32_t guidanceTransitionSequence = 0;
     uint32_t maxCycleUs = 0;
 };
 namespace state {

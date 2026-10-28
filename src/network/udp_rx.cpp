@@ -26,9 +26,10 @@ uint8_t receiveBuffer[1460];
 uint8_t sensorCount = 0;
 network::Stats counters{};
 SharedValue<network::Stats> publishedCounters;
+bool statusPending = false;
+uint32_t pendingCycle = 0, pendingTransition = 0;
 
-void sendStatus() {
-    SteerStatus status = state::steerSnapshot();
+void sendStatus(const SteerStatus& status) {
     uint8_t reply[] = {0x80,0x81,126,253,8,0,0,0,0,0,0,status.switchByte,status.pwmDisplay,0};
     int16_t angle = static_cast<int16_t>(status.steerAngleActual * 100);
     reply[5] = angle; reply[6] = angle >> 8;
@@ -52,7 +53,10 @@ void dispatch(const uint8_t* d, size_t length, IPAddress remote) {
         if (!status.available || !pgn::decodeGuidance(d, length, command)) break;
         command.receivedMs = millis();
         state::publishGuidance(command);
-        sendStatus();
+        // Duplicatas compartilham a resposta; não reiniciam a espera pelo controle.
+        if (!statusPending) pendingCycle = status.cycles;
+        pendingTransition = state::guidanceSnapshot().transitionSequence;
+        statusPending = true;
         break;
     }
     case 252: {
@@ -117,6 +121,14 @@ void poll() {
         int count = ntripSocket.read(receiveBuffer, sizeof(receiveBuffer));
         if (count == length) rtcm::enqueue(receiveBuffer, count);
         else ++counters.invalidPackets;
+    }
+    if (statusPending) {
+        SteerStatus status = state::steerSnapshot();
+        // O bit da chave precisa refletir a transição já avaliada pelo controle.
+        if (status.cycles != pendingCycle && status.guidanceTransitionSequence == pendingTransition) {
+            sendStatus(status);
+            statusPending = false;
+        }
     }
     // RX e TX têm orçamento por passagem para não monopolizar a task.
     for (uint8_t i = 0; i < 2; ++i) {

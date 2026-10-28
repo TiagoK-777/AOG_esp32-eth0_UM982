@@ -22,12 +22,12 @@ O firmware usa a organização do projeto ESP32-S3 de referência, com somente o
 | Task própria | Núcleo | Prioridade | Ativação |
 |---|---|---|---|
 | `autosteer` | 1 | 5 | Passagem a cada 1 ms; bloco de controle com gate de 25 ms (40 Hz) |
-| `navigation` | 1 | 3 | Passagem a cada 1 ms; RX GNSS limitado a 64 bytes, RVC a 76 bytes, RTK TX a 128 bytes |
+| `navigation` | 0 | 3 | Passagem a cada 1 ms; RX GNSS limitado a 64 bytes, RVC a 76 bytes, RTK TX a 128 bytes |
 | `network` | 0 | 2 | Passagem a cada 1 ms; até um datagrama por porta e dois envios por passagem |
 | `safety` | 1 | 6 | A cada 20 ms |
 | `loopTask` do Arduino | 1 | 1 | Manutenção a cada 10 ms; diagnóstico a cada 5 s |
 
-A navegação compartilha o núcleo 1 com controle e supervisão. Essa afinidade foi escolhida pelo usuário após observar spikes no ESP32-S3 quando navegação e rede compartilhavam o núcleo 0; o efeito no WT32-ETH01 ainda precisa ser medido. Dentro do núcleo 1, as prioridades permanecem supervisor (6), controle (5), navegação (3) e manutenção (1). A task de rede permanece no núcleo 0.
+A navegação compartilha o núcleo 0 com a rede, conforme decisão atual do usuário. Nesse núcleo, navegação tem prioridade 3 e rede tem prioridade 2. No núcleo 1 ficam supervisor (6), controle (5) e manutenção (1). Os efeitos dessa afinidade nos picos de duração ainda precisam ser medidos no WT32-ETH01.
 
 As esperas usam o FreeRTOS e liberam a CPU. O gate de 25 ms e a leitura rápida do encoder foram mantidos separados para preservar a lógica de entradas do firmware anterior. As frequências reais e os picos de duração devem ser medidos em bancada; o agendador não garante ausência de atraso. O campo `peak` mede o tempo decorrido dentro da chamada ao handler, incluindo preempções durante a chamada; não mede a espera antes de começar a executá-lo.
 
@@ -36,7 +36,7 @@ Stacks das quatro tasks próprias são estáticas: 4096, 4096, 4096 e 2048 bytes
 ## Fluxos
 
 1. AgIO/AOG envia PGNs na porta 8888. Rede valida cabeçalho, tamanho declarado e checksum. O PGN 254 publica um comando completo, com instante de recepção e sequência; mensagens inválidas não renovam o prazo da direção.
-2. Controle lê a última cópia do comando e mantém o cálculo proporcional, mínimo PWM, limites, Ackerman, inversões e modo Danfoss. Publica o status depois de concluir o ciclo.
+2. Controle lê a última cópia do comando e mantém o cálculo proporcional, mínimo PWM, limites, Ackerman, inversões e modo Danfoss. Publica o status depois de concluir o ciclo, incluindo a sequência de transições de guidance consumida. A rede só responde ao PGN 254 depois de um novo ciclo e com essa sequência atualizada, para não devolver ao AOG o estado da chave anterior à transição. Comandos recebidos antes dessa resposta compartilham o retorno mais recente; duplicatas não reiniciam a espera. O atraso nominal é de até um gate de 25 ms, acrescido do escalonamento e da fila TX, sem espera bloqueante na rede.
 3. GPS/IMU produzem uma mensagem completa PANDA/PAOGI. A fila copia seus bytes; somente rede faz o envio UDP, sem compartilhar sockets.
 4. RTK recebido na porta 2233 entra no FIFO em ordem. Navegação transmite somente até o espaço informado pelo buffer TX da UART. Datagrama que não cabe é descartado inteiro e contabilizado; não há truncamento deliberado em 512 bytes.
 5. PGNs 252/251/201 criam configurações pendentes. Controle aplica entre passagens, corta o motor e entrega uma cópia à manutenção. O motor permanece bloqueado durante a gravação da NVS. Uma alteração desengaja a direção; após concluir, reativar pela GUI/chave. O PGN 201 reinicia somente depois de persistir o subnet.
@@ -79,6 +79,8 @@ O hello legado enviado pelo [AgIO](https://github.com/AgOpenGPS-Official/AgOpenG
 ## Engajamento e teste parado
 
 `None` usa o botão da tela do AOG. `Switch` e `Button` selecionam, respectivamente, chave e botão momentâneo físicos no GPIO36; precisam de pull-up externo e acionamento em LOW. Essas entradas continuam sendo necessárias nos seus respectivos modos. O engajamento é avaliado depois das entradas e do WAS do próprio ciclo, sem depender da chegada de outro PGN para reconhecer uma mudança da entrada.
+
+O estado anunciado nasce desengajado (`steerSwitch=1`, bit 1 de `switchByte` em 1). A resposta PGN 253 usa o snapshot após o controle consumir a transição, inclusive em falhas de ADC. Ao aplicar configurações, o corte atualiza imediatamente tanto `steerSwitch` quanto `switchByte`, mesmo fora do gate. Isso evita anunciar uma chave ligada com a direção já cortada. A detecção de transições preservada entre tasks impede que comandos repetidos apaguem uma mudança no modo `None`.
 
 O [AOG, em `Position.designer.cs`](https://github.com/AgOpenGPS-Official/AgOpenGPS/blob/master/SourceCode/GPS/Forms/Position.designer.cs), transmite o Free Drive pelo PGN 254 com status 1, velocidade de teste 80 (8,0 km/h) e o ângulo solicitado. Não existe indicação separada de Free Drive nesse PGN: o firmware usa a velocidade recebida, sem tentar identificar o modo pelo valor 8. Ao sair do teste e receber novamente velocidade zero, corta o PWM mesmo que o piloto permaneça engajado. Free Drive não contorna entrada física, timeout, falha do ADC, limites do WAS ou bloqueio de persistência.
 

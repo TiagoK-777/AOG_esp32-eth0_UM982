@@ -37,6 +37,10 @@ produção com sockets e fila simulados. Usa o hello literal do AgIO com checksu
 fixo `0x47`, verifica respostas 126/121 conforme disponibilidade, payload,
 checksum e destino, e também aceita hello com checksum calculado. Pacotes
 alterados, truncados, excedidos e comandos com checksum incorreto são rejeitados.
+Também integra RX, controle e TX no modo None: estado inicial desligado,
+resposta após o gate com a transição consumida, comandos repetidos e
+ON/OFF/ON antes do ciclo. Uma transição entre controle e envio adia a resposta;
+falha ADC e persistência anunciam o corte sem reengajar por repetição de ON.
 
 `native/test_navigation.cpp` executa 48 perfis: três modos × dois protocolos
 × duas montagens × yaw rate ligado/desligado × inversão de roll ligada/desligada.

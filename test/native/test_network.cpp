@@ -1,15 +1,21 @@
 #include <Arduino.h>
 #include <WiFiUdp.h>
+#include <Wire.h>
 #include <cassert>
 #include <cstring>
 #include <deque>
 #include <iostream>
 #include "config/defines.h"
+#include "config/pinout.h"
+#include "autosteer/autosteer_task.h"
+#include "autosteer/safety.h"
+#include "hardware/motor_pwm.h"
 #include "network/ethernet.h"
 #include "network/pgn_protocol.h"
 #include "network/udp_rx.h"
 #include "network/udp_tx.h"
 #include "state/imu_state.h"
+#include "state/pending.h"
 #include "state/steer_state.h"
 
 const UserSettings userSettings{};
@@ -34,6 +40,22 @@ void checkReply(size_t index, uint8_t id) {
     uint8_t sum = 0;
     for (size_t i = 2; i < 10; ++i) sum += bytes[i];
     assert(bytes[10] == sum);
+}
+void controlCycle() {
+    fakeMillis += CONTROL_PERIOD_MS;
+    autosteer::poll();
+    safety::poll();
+    network::poll();
+}
+void checkSteerReply(bool enabled) {
+    assert(fakeUdpTx.size() == 1);
+    const auto& reply = fakeUdpTx[0].bytes;
+    assert(reply.size() == 14 && reply[3] == 253);
+    uint8_t sum = 0;
+    for (size_t i = 2; i + 1 < reply.size(); ++i) sum += reply[i];
+    assert(reply.back() == sum);
+    assert(((reply[11] & 2) == 0) == enabled);
+    assert(state::steerSnapshot().engaged == enabled);
 }
 }
 namespace ethernet {
@@ -126,8 +148,73 @@ int main() {
     auto corrupt = command; corrupt.back() ^= 1;
     receive(corrupt);
     assert(fakeUdpTx.empty() && state::guidanceSnapshot().sequence == sequence);
+
+    // Integração RX -> controle -> TX: o primeiro estado é desengajado.
+    config::publish(ConfigSnapshot{});
+    fakePins[STEERSW_PIN] = HIGH;
+    assert(motor::setup() && autosteer::setup(true));
+    assert(state::steerSnapshot().steerSwitch == 1);
+    assert((state::steerSnapshot().switchByte & 2) != 0);
+    command[7] = 0;
+    pgn::checksum(command.data(), command.size());
     receive(command);
-    assert(fakeUdpTx.size() == 1 && fakeUdpTx[0].bytes[3] == 253);
+    assert(fakeUdpTx.empty());
     assert(state::guidanceSnapshot().sequence != sequence);
+    controlCycle(); checkSteerReply(false);
+
+    // Comandos repetidos antes do gate não apagam nem atrasam a transição.
+    for (bool enabled : {true, false, true, false}) {
+        command[7] = enabled;
+        pgn::checksum(command.data(), command.size());
+        for (int i = 0; i < 4; ++i) {
+            receive(command);
+            assert(fakeUdpTx.empty());
+            autosteer::poll(); // Passagem rápida, fora do gate de 25 ms.
+        }
+        controlCycle(); checkSteerReply(enabled);
+        fakeUdpTx.clear(); network::poll();
+        assert(fakeUdpTx.empty()); // Não repete resposta sem outro comando.
+    }
+
+    // ON/OFF/ON no mesmo gate responde somente ao estado final processado.
+    for (bool enabled : {true, false, true}) {
+        command[7] = enabled;
+        pgn::checksum(command.data(), command.size());
+        receive(command);
+        assert(fakeUdpTx.empty());
+    }
+    controlCycle(); checkSteerReply(true);
+
+    // Outra transição entre controle e TX invalida a resposta ainda pendente.
+    receive(command);
+    fakeMillis += CONTROL_PERIOD_MS;
+    autosteer::poll();
+    command[7] = 0; pgn::checksum(command.data(), command.size());
+    receive(command); assert(fakeUdpTx.empty());
+    controlCycle(); checkSteerReply(false);
+    command[7] = 1; pgn::checksum(command.data(), command.size());
+    receive(command); controlCycle(); checkSteerReply(true);
+
+    // Corte ADC é anunciado desligado; repetir ON não reengaja após a falha.
+    Wire.error = 2;
+    receive(command); assert(fakeUdpTx.empty());
+    controlCycle(); checkSteerReply(false);
+    Wire.error = 0;
+    receive(command); controlCycle(); checkSteerReply(false);
+    command[7] = 0; pgn::checksum(command.data(), command.size());
+    receive(command); controlCycle(); checkSteerReply(false);
+    command[7] = 1; pgn::checksum(command.data(), command.size());
+    receive(command); controlCycle(); checkSteerReply(true);
+
+    // Persistência corta e publica o bit de chave mesmo fora do gate.
+    pending::stageSettings(config::snapshot().steerSettings);
+    autosteer::poll();
+    assert(!state::steerSnapshot().engaged && state::steerSnapshot().steerSwitch == 1);
+    assert((state::steerSnapshot().switchByte & 2) != 0);
+    receive(command); controlCycle(); checkSteerReply(false);
+    pending::Update update;
+    assert(pending::takePersistence(update));
+    pending::finishPersistence();
+    receive(command); controlCycle(); checkSteerReply(false);
     std::cout << "Rede: hello AgIO, respostas e rejeição de pacotes inválidos OK\n";
 }
