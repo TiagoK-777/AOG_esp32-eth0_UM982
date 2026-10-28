@@ -46,7 +46,8 @@ Portas mantidas: GPS origem 5120, autosteer origem/recepção 8888, RTK recepç�
 ## Proteções e limites
 
 - Prazo de comando: 2500 ms desde o último PGN 254 válido, equivalente nominal ao contador anterior de 100 ciclos de 25 ms; subtrações sem sinal toleram o wrap de `millis()`.
-- Supervisor: motor desligado com direção indisponível, chave desligada, guidance desligado, velocidade fora da faixa ou ciclo concluído há mais de 100 ms.
+- Supervisor: motor desligado com direção indisponível, direção desengajada, chave desligada, guidance desligado, velocidade fora da faixa de PWM ou ciclo concluído há mais de 100 ms.
+- Engajamento e PWM são independentes: com guidance válido e entrada habilitada, o piloto pode ficar engajado parado; o PWM fica zerado abaixo de 1,5 km/h. Controle e supervisor usam a mesma faixa de PWM (1,5 a 25 km/h). O limite superior de 25 km/h também desengaja a entrada, como antes.
 - Saída do motor: um mutex serializa corte e PWM; cada corte incrementa uma geração. Um cálculo anterior ao corte não pode reaplicar PWM com a geração antiga.
 - ADS1115: timeout I2C de 3 ms por transação; erros de transmissão e respostas incompletas desengajam a direção. Conversão é iniciada para a leitura seguinte.
 - Watchdog FreeRTOS: quatro tasks registradas, timeout de 2 s com panic/reset. Gravação de flash pode suspender ambas as CPUs; o corte acontece antes de iniciar a persistência.
@@ -74,3 +75,13 @@ A referência Teensy utilizada para comparação está no projeto vizinho, em `A
 Formato de PGNs conferido na [especificação oficial AgOpenGPS](https://github.com/AgOpenGPS-Official/Boards/blob/main/PGN.md). Respostas hello agora calculam seu checksum, preservando identificação e payload.
 
 O hello legado enviado pelo [AgIO](https://github.com/AgOpenGPS-Official/AgOpenGPS/blob/master/SourceCode/AgIO/Source/Forms/UDP.designer.cs) é `80 81 7F C8 03 38 00 00 47`: usa checksum fixo `0x47`, embora a soma seja `0x82`. A validação aceita exatamente esse pacote além das mensagens com checksum correto; a exceção não se aplica a comandos ou configurações. Ao receber o hello, a rede responde com PGN 126 se a direção está disponível e PGN 121 se a IMU já recebeu RVC válido. São essas respostas que renovam os indicadores do AgIO; a orientação continua no PANDA/PAOGI e o verde da direção não indica engajamento. `useBNO08x` indica detecção e permanece ativo após a primeira leitura, sem timeout de presença nesta versão.
+
+## Engajamento e teste parado
+
+`None` usa o botão da tela do AOG. `Switch` e `Button` selecionam, respectivamente, chave e botão momentâneo físicos no GPIO36; precisam de pull-up externo e acionamento em LOW. Essas entradas continuam sendo necessárias nos seus respectivos modos. O engajamento é avaliado depois das entradas e do WAS do próprio ciclo, sem depender da chegada de outro PGN para reconhecer uma mudança da entrada.
+
+O [AOG, em `Position.designer.cs`](https://github.com/AgOpenGPS-Official/AgOpenGPS/blob/master/SourceCode/GPS/Forms/Position.designer.cs), transmite o Free Drive pelo PGN 254 com status 1, velocidade de teste 80 (8,0 km/h) e o ângulo solicitado. Não existe indicação separada de Free Drive nesse PGN: o firmware usa a velocidade recebida, sem tentar identificar o modo pelo valor 8. Ao sair do teste e receber novamente velocidade zero, corta o PWM mesmo que o piloto permaneça engajado. Free Drive não contorna entrada física, timeout, falha do ADC, limites do WAS ou bloqueio de persistência.
+
+O diagnóstico `STEER`, a cada 5 s, mostra disponibilidade, engajamento lógico, modo da entrada, `switch` (0 habilitado, 1 desligado), guidance, velocidade recebida do AOG e PWM do último ciclo. Por exemplo, `engaged=1 speed=0.0 pwm=0` representa piloto engajado com motor cortado por baixa velocidade. Os snapshots de direção, comando e configuração são lidos separadamente; a linha é diagnóstico periódico, não um registro atômico dos três domínios.
+
+A comparação usou as referências locais `.AOG_Teensy_UM982`, `.AIO_v4_FirmwareWASBNOkorektaBNO`, `.AIO_v4_Firmware_Keya_CANBUS_HPR_Dual_27.04.2025` e `.ESP32-AIO-AG`. Elas diferem nos limites de baixa velocidade e na combinação de GUI/entrada física; nenhuma foi editada ou compilada. O comportamento de piloto engajado parado com PWM cortado segue a decisão do usuário para este port.

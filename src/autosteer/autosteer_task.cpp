@@ -128,8 +128,6 @@ void poll()
     command = incoming;
     gpsSpeed = command.gpsSpeed;
     steerAngleSetPoint = command.steerAngleSetPoint;
-    commandEnabled = command.valid && (command.guidanceStatus & 1) &&
-        gpsSpeed >= 1.5f && steerSwitch == 0 && std::fabs(steerAngleActual) <= WAS_ANGLE_MAX;
   }
 
   currentTime = millis();
@@ -144,8 +142,6 @@ void poll()
     consumedTransition = command.transitionSequence;
 
     encEnable = true;
-
-    if (!safety::commandFresh(currentTime, command)) commandEnabled = false;
 
     workSwitch = digitalRead(WORKSW_PIN);  // read work switch
 
@@ -273,7 +269,7 @@ void poll()
 
     if (steerAngleActual < 0) steerAngleActual = (steerAngleActual * steerSettings.AckermanFix);
 
-    if ((steerAngleActual < inputWAS[0]) || (steerAngleActual > inputWAS[20]) || gpsSpeed > 25.0f)
+    if ((steerAngleActual < inputWAS[0]) || (steerAngleActual > inputWAS[20]) || gpsSpeed > MAX_STEER_SPEED_KMH)
     {
         steerSwitch = 1;
         currentState = 1;
@@ -283,7 +279,11 @@ void poll()
 
     steerAngleActual = multiMap<float>(steerAngleActual, inputWAS, outputWAS, 21);
 
-    if (commandEnabled && steerSwitch == 0 && safety::commandFresh(millis(), command) && !pending::maintenanceActive()) {
+    // Engajamento lógico usa a entrada e o WAS deste ciclo, inclusive parado.
+    commandEnabled = safety::commandFresh(millis(), command) && (command.guidanceStatus & 1) &&
+        steerSwitch == 0 && std::fabs(steerAngleActual) <= WAS_ANGLE_MAX && !pending::maintenanceActive();
+    // O AOG envia velocidade de teste de 8 km/h no Free Drive (PGN 254).
+    if (commandEnabled && safety::pwmSpeedAllowed(command)) {
       steerAngleError = steerAngleActual - steerAngleSetPoint;
       pwmDrive = calcSteeringPID(steerAngleError, steerSettings, steerConfig);
       pwmDisplay = motor::drive(pwmDrive, steerConfig, outputEpoch);

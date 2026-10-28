@@ -18,11 +18,19 @@ Para executar uma parte:
 ```sh
 python test/run_native.py --suite navigation
 python test/run_native.py --suite core
+python test/run_native.py --suite engagement
 ```
 
 `native/test_main.cpp` mantém as regressões de controle proporcional, PGNs,
 RTCM, snapshots concorrentes, corte do motor, ADC, persistência e parser RVC.
 São três compilações: PANDA, PAOGI e PANDA com fusão habilitada.
+
+`native/test_engagement.cpp`, incluído também na suíte `core`, executa nove
+perfis: None/Switch/Button × Cytron/IBT2/Danfoss. Verifica engajamento parado
+com PWM zero, liberação a partir de 1,5 km/h, Free Drive com o PGN 254 oficial
+(velocidade 80, status 1), corte ao voltar a zero e desengajamento por GUI/entrada.
+Também cobre corte pelo supervisor antes do próximo ciclo, timeout, erro ADC,
+excesso de velocidade e persistência sem reengajamento automático.
 
 `native/test_network.cpp`, incluído na suíte `core`, exercita o RX/TX UDP de
 produção com sockets e fila simulados. Usa o hello literal do AgIO com checksum

@@ -11,7 +11,9 @@
 #include "network/rtcm_buffer.h"
 #include "hardware/motor_pwm.h"
 #include "config/defines.h"
+#include "config/settings.h"
 #include "state/steer_state.h"
+#include "state/guidance_state.h"
 #include "state/shared_value.h"
 namespace {
 enum TaskId { Control, Navigation, Network, Safety, Count };
@@ -93,10 +95,17 @@ void diagnostics() {
             static_cast<unsigned long>(value.hz), static_cast<unsigned long>(value.maxUs), stack);
     }
     SteerStatus status = state::steerSnapshot();
+    GuidanceCommand command = state::guidanceSnapshot();
     network::Stats net = network::stats();
     Serial.printf("CONTROL cycles=%lu peak=%lu us | TX drops=%lu RTK drops=%lu invalid=%lu sendFail=%lu heap=%u\n",
         static_cast<unsigned long>(status.cycles), static_cast<unsigned long>(status.maxCycleUs),
         static_cast<unsigned long>(udp_tx::droppedPackets()), static_cast<unsigned long>(rtcm::droppedPackets()),
         static_cast<unsigned long>(net.invalidPackets), static_cast<unsigned long>(net.sendFailures), ESP.getFreeHeap());
+    ConfigSnapshot values = config::snapshot();
+    const char* mode = values.steerConfig.SteerSwitch ? "switch" : values.steerConfig.SteerButton ? "button" : "none";
+    Serial.printf("STEER available=%u engaged=%u mode=%s switch=%u guidance=%u speed=%.1f pwm=%u\n",
+        static_cast<unsigned>(status.available), static_cast<unsigned>(status.engaged), mode,
+        static_cast<unsigned>(status.steerSwitch), static_cast<unsigned>(command.guidanceStatus),
+        static_cast<double>(command.gpsSpeed), static_cast<unsigned>(status.pwmDisplay));
 }
 }

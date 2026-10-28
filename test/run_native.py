@@ -9,7 +9,7 @@ import tempfile
 
 root = Path(__file__).resolve().parents[1]
 arguments = argparse.ArgumentParser(description=__doc__)
-arguments.add_argument('--suite', choices=['all', 'core', 'navigation'], default='all')
+arguments.add_argument('--suite', choices=['all', 'core', 'navigation', 'engagement'], default='all')
 suite = arguments.parse_args().suite
 kalman = root / '.pio/libdeps/wt32-eth01/SimpleKalmanFilter/src'
 if not kalman.is_dir():
@@ -33,6 +33,15 @@ with tempfile.TemporaryDirectory(prefix='aog-native-') as directory:
             *(str(root / path) for path in inputs), str(kalman / 'SimpleKalmanFilter.cpp'),
             '-o', str(binary),
         ], check=True)
+    if suite in ('all', 'core', 'engagement'):
+        compile_binary([
+            'test/native/test_engagement.cpp', 'src/autosteer/autosteer_task.cpp',
+            'src/autosteer/pid.cpp', 'src/autosteer/safety.cpp', 'src/config/settings.cpp',
+            'src/hardware/ads1115.cpp', 'src/hardware/motor_pwm.cpp', 'src/network/pgn_protocol.cpp',
+            'src/state/guidance_state.cpp', 'src/state/steer_state.cpp', 'src/state/pending.cpp',
+        ])
+        for mode, driver in itertools.product(range(3), range(3)):
+            subprocess.run([str(binary), str(mode), str(driver)], check=True, env=environment, timeout=30)
     if suite in ('all', 'core'):
         compile_binary([
             'test/native/test_network.cpp', 'src/network/udp_rx.cpp', 'src/network/pgn_protocol.cpp',
