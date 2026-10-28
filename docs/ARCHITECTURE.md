@@ -22,12 +22,14 @@ O firmware usa a organização do projeto ESP32-S3 de referência, com somente o
 | Task própria | Núcleo | Prioridade | Ativação |
 |---|---|---|---|
 | `autosteer` | 1 | 5 | Passagem a cada 1 ms; bloco de controle com gate de 25 ms (40 Hz) |
-| `navigation` | 0 | 3 | Passagem a cada 1 ms; RX GNSS limitado a 64 bytes, RVC a 76 bytes, RTK TX a 128 bytes |
+| `navigation` | 1 | 3 | Passagem a cada 1 ms; RX GNSS limitado a 64 bytes, RVC a 76 bytes, RTK TX a 128 bytes |
 | `network` | 0 | 2 | Passagem a cada 1 ms; até um datagrama por porta e dois envios por passagem |
 | `safety` | 1 | 6 | A cada 20 ms |
 | `loopTask` do Arduino | 1 | 1 | Manutenção a cada 10 ms; diagnóstico a cada 5 s |
 
-As esperas usam o FreeRTOS e liberam a CPU. O gate de 25 ms e a leitura rápida do encoder foram mantidos separados para preservar a lógica de entradas do firmware anterior. As frequências reais e os picos de duração devem ser medidos em bancada; o agendador não garante ausência de atraso.
+A navegação compartilha o núcleo 1 com controle e supervisão. Essa afinidade foi escolhida pelo usuário após observar spikes no ESP32-S3 quando navegação e rede compartilhavam o núcleo 0; o efeito no WT32-ETH01 ainda precisa ser medido. Dentro do núcleo 1, as prioridades permanecem supervisor (6), controle (5), navegação (3) e manutenção (1). A task de rede permanece no núcleo 0.
+
+As esperas usam o FreeRTOS e liberam a CPU. O gate de 25 ms e a leitura rápida do encoder foram mantidos separados para preservar a lógica de entradas do firmware anterior. As frequências reais e os picos de duração devem ser medidos em bancada; o agendador não garante ausência de atraso. O campo `peak` mede o tempo decorrido dentro da chamada ao handler, incluindo preempções durante a chamada; não mede a espera antes de começar a executá-lo.
 
 Stacks das quatro tasks próprias são estáticas: 4096, 4096, 4096 e 2048 bytes. A fila UDP possui oito mensagens de até 256 bytes e o FIFO RTK possui 2048 bytes. Bibliotecas Arduino/rede ainda podem alocar memória internamente. Não há dependência de PSRAM.
 

@@ -63,7 +63,8 @@ bool create() {
     struct Definition { const char* name; StackType_t* stack; uint32_t bytes; UBaseType_t priority; BaseType_t core; };
     const Definition definitions[] = {
         {"autosteer", controlStack, sizeof(controlStack), 5, 1},
-        {"navigation", navigationStack, sizeof(navigationStack), 3, 0},
+        // Afinidade escolhida após spikes com navegação/rede no núcleo 0 no ESP32-S3.
+        {"navigation", navigationStack, sizeof(navigationStack), 3, 1},
         {"network", networkStack, sizeof(networkStack), 2, 0},
         {"safety", safetyStack, sizeof(safetyStack), 6, 1}
     };

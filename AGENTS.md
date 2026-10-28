@@ -22,7 +22,7 @@ O cabeçalho central de variáveis globais foi removido. Não recriar um agregad
 ## Concorrência
 
 - Controle: núcleo 1, prioridade 5, passagem a cada 1 ms e gate de controle de 25 ms. A leitura de encoder fora do gate precisa continuar rápida.
-- Navegação: núcleo 0, prioridade 3, passagem a cada 1 ms; único dono das UARTs GPS e IMU e da fusão.
+- Navegação: núcleo 1, prioridade 3, passagem a cada 1 ms; único dono das UARTs GPS e IMU e da fusão. Mantida junto ao controle por decisão do usuário após observar spikes ao compartilhar o núcleo 0 com a rede no ESP32-S3.
 - Rede: núcleo 0, prioridade 2; único dono dos sockets. Todo TX passa pela fila, todo RTK pelo FIFO.
 - Supervisor: núcleo 1, prioridade 6, período 20 ms. Controle e supervisor usam o driver do motor com mutex e invalidação por geração.
 - `loop()`: manutenção a cada 10 ms e diagnóstico a cada 5 s.
