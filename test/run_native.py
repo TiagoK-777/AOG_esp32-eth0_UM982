@@ -34,6 +34,13 @@ with tempfile.TemporaryDirectory(prefix='aog-native-') as directory:
             '-o', str(binary),
         ], check=True)
     if suite in ('all', 'core'):
+        compile_binary([
+            'test/native/test_network.cpp', 'src/network/udp_rx.cpp', 'src/network/pgn_protocol.cpp',
+            'src/network/rtcm_buffer.cpp', 'src/config/settings.cpp',
+            'src/state/guidance_state.cpp', 'src/state/steer_state.cpp', 'src/state/imu_state.cpp',
+            'src/state/pending.cpp',
+        ])
+        subprocess.run([str(binary)], check=True, env=environment, timeout=30)
         for name, flags in [('PANDA', []), ('PAOGI', ['-DTEST_PAOGI']), ('dual/IMU', ['-DTEST_DUAL'])]:
             compile_binary(sources, flags)
             print(name, flush=True)

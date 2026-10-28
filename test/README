@@ -24,6 +24,12 @@ python test/run_native.py --suite core
 RTCM, snapshots concorrentes, corte do motor, ADC, persistência e parser RVC.
 São três compilações: PANDA, PAOGI e PANDA com fusão habilitada.
 
+`native/test_network.cpp`, incluído na suíte `core`, exercita o RX/TX UDP de
+produção com sockets e fila simulados. Usa o hello literal do AgIO com checksum
+fixo `0x47`, verifica respostas 126/121 conforme disponibilidade, payload,
+checksum e destino, e também aceita hello com checksum calculado. Pacotes
+alterados, truncados, excedidos e comandos com checksum incorreto são rejeitados.
+
 `native/test_navigation.cpp` executa 48 perfis: três modos × dois protocolos
 × duas montagens × yaw rate ligado/desligado × inversão de roll ligada/desligada.
 Cada perfil roda em um processo com `userSettings` constante, sem modificar

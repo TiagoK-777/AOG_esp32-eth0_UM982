@@ -10,6 +10,10 @@ bool valid(const uint8_t* data, size_t length) {
     if (!data || length < 6 || data[0] != 0x80 || data[1] != 0x81 || data[2] != 0x7F) return false;
     size_t expected = static_cast<size_t>(data[4]) + 6;
     if (length != expected) return false;
+    // AgIO envia este hello com checksum fixo 0x47 (não corresponde à soma).
+    // A exceção é exclusiva do pacote de diagnóstico; comandos continuam estritos.
+    if (length == 9 && data[3] == 200 && data[4] == 3 &&
+        data[5] == 56 && data[6] == 0 && data[7] == 0 && data[8] == 0x47) return true;
     uint8_t sum = 0;
     for (size_t i = 2; i + 1 < expected; ++i) sum += data[i];
     return sum == data[expected - 1];
