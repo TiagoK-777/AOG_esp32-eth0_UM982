@@ -63,6 +63,10 @@ python test/run_native.py
 
 Os testes nativos compilam código de produção com interfaces simuladas de Arduino, I2C, UART e travas. ASan/UBSan verificam PID, PGNs truncados/checksum, NMEA/PANDA/PAOGI (com e sem fusão dual), FIFO RTK com wrap/overflow, snapshots concorrentes, invalidação de PWM após corte, falhas ADC, direção, staging, RVC e compatibilidade NVS. Não simulam o escalonador, o PHY, os tempos reais do barramento ou o circuito do motor.
 
+A suíte de navegação cobre 48 perfis de single+IMU, dual e dual+IMU, cruzando PANDA/PAOGI, montagem da baseline, yaw rate e inversão de roll. Pode ser executada separadamente com `python test/run_native.py --suite navigation`; cenários e requisitos estão em [test/README](../test/README).
+
+Com `headingcorr=900`, a inclinação do HPR representa roll; com `headingcorr=0`, representa pitch. Sem IMU, o eixo não medido fica em zero. Com IMU e `baseLineCheck=true`, heading e o eixo medido recebem correção suavizada somente com qualidade HPR >= 4; o outro eixo continua vindo da IMU. HPR de qualidade inferior mantém os offsets e libera a época GGA/HPR para holdover. HPR inválido não publica valores parciais nem reutiliza a qualidade anterior. A fusão usa a menor diferença circular; PANDA mantém inteiros x10 também neste modo.
+
 Antes do uso em campo, validar em bancada: pinos, Ethernet com link tardio/reconexão, tráfego GNSS/RVC/RTK simultâneo, falha I2C, desligamento ao perder comandos, chaves/encoder, Cytron/IBT-2, configuração NVS e reboot PGN 201. Conferir os picos de duração e o mínimo de stack informados por `TASK`/`CONTROL`.
 
 A referência Teensy utilizada para comparação está no projeto vizinho, em `AOG_esp32-s3_ETH_UM982_task/.AOG_Teensy_UM982/src/`. Ela não é uma dependência de compilação deste firmware.

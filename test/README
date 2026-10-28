@@ -1,11 +1,63 @@
 
-This directory is intended for PlatformIO Test Runner and project tests.
+# Regressões nativas
 
-Unit Testing is a software testing method by which individual units of
-source code, sets of one or more MCU program modules together with associated
-control data, usage procedures, and operating procedures, are tested to
-determine whether they are fit for use. Unit testing finds problems early
-in the development cycle.
+Na raiz do projeto:
 
-More information about PlatformIO Unit Testing:
-- https://docs.platformio.org/en/latest/advanced/unit-testing/index.html
+```sh
+pio run -e wt32-eth01
+python test/run_native.py
+```
+
+Requer Python 3, g++ com C++17/pthreads e a biblioteca SimpleKalmanFilter
+instalada pelo PlatformIO em `.pio/libdeps/wt32-eth01/`. Os binários são
+temporários; o código de produção é compilado com ASan e UBSan. Falhas de
+asserção, memória ou comportamento indefinido fazem o comando retornar erro.
+
+Para executar uma parte:
+
+```sh
+python test/run_native.py --suite navigation
+python test/run_native.py --suite core
+```
+
+`native/test_main.cpp` mantém as regressões de controle proporcional, PGNs,
+RTCM, snapshots concorrentes, corte do motor, ADC, persistência e parser RVC.
+São três compilações: PANDA, PAOGI e PANDA com fusão habilitada.
+
+`native/test_navigation.cpp` executa 48 perfis: três modos × dois protocolos
+× duas montagens × yaw rate ligado/desligado × inversão de roll ligada/desligada.
+Cada perfil roda em um processo com `userSettings` constante, sem modificar
+as opções de `src/main.cpp`. Os cenários reiniciam o contexto GPS e os filtros;
+pacotes RVC completos são usados no teste de integração UART até UDP.
+
+| Modo | IMU | baseLineCheck | Fonte da orientação |
+|---|---|---|---|
+| Single + IMU | presente | false | IMU; GGA libera a saída sem HPR |
+| Dual | ausente | true | HPR; saída sincronizada com GGA |
+| Dual + IMU | presente | true | IMU com offsets corrigidos pelo HPR |
+
+Regras verificadas:
+
+- `headingcorr=900`: inclinação HPR no roll; `headingcorr=0`: no pitch.
+  Uma baseline não fornece dois eixos independentes. Sem IMU, o outro eixo
+  fica em zero; com fusão, o outro eixo continua vindo da IMU.
+- Qualidades HPR 4 e 5 atualizam os offsets quando IMU e fusão estão ativas.
+  Qualidades 0, 1, 2 e 3 preservam os últimos offsets e liberam a época para
+  continuar usando a IMU. A qualidade do GGA não substitui a do HPR.
+- Heading segue o menor caminho circular em ambas as direções, inclusive
+  diferenças maiores que 90 graus, e a saída fundida fica em [0, 360).
+- Os offsets convergem e retomam a correção após recuperar qualidade.
+- PANDA transmite inteiros em décimos de grau e décimos de grau/s, inclusive
+  na fusão; PAOGI usa graus e grau/s decimais. A sentença completa e seu
+  checksum são comparados a um resultado esperado independente.
+- GGA/HPR funcionam nas duas ordens de chegada, não repetem épocas e
+  respeitam o gate dual. Sem novo HPR, `baseLineCheck=true` aguarda HPR;
+  o teste de sinal fraco simula HPR recebido com qualidade abaixo de 4.
+- HPR incompleto, campo vazio, valor não numérico, NaN/Inf, campo excedido
+  ou ângulo fora da faixa não reutiliza qualidade anterior nem altera offsets.
+  Checksum inválido não atualiza a navegação; o parser recupera na próxima sentença.
+- RVC respeita seleção de eixo, inversão de roll e conversão de yaw negativo.
+
+Esses testes simulam hardware e não validam prazos reais, orientação física
+das antenas/IMU ou comportamento do veículo. Mudanças de navegação exigem
+validação em bancada com AgOpenGPS antes do campo.

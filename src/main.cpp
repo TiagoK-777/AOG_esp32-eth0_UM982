@@ -27,8 +27,8 @@ const UserSettings userSettings = []() constexpr {
     UserSettings settings;
     settings.udpPassthrough = false;
     settings.makeOGI = false;
-    settings.baseLineCheck = false;
-    settings.headingcorr = 0;
+    settings.baseLineCheck = false; // true: sincroniza GGA/HPR e habilita fusão com IMU.
+    settings.headingcorr = 0; // 0: baseline frente/trás (pitch); 900: lado a lado (roll).
     settings.filterRoll = false;
     settings.filterHeading = false;
     settings.sendUSB = false;

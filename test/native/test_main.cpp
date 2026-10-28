@@ -102,13 +102,13 @@ void checkNavigation() {
     gps::imuHandler(); gps::BuildNmea();
     const std::string prefix = userSettings.makeOGI ? "PAOGI" : "PANDA";
     const std::string position = ",123519,4807.038,N,01131.000,E,4,08,0.9,545.4,1.2,005.5,";
-    const std::string dualOnly = userSettings.makeOGI ? "90.00,-2.50,0.0000,0.0" : "900,-25,0.0000,0";
+    const std::string dualOnly = userSettings.makeOGI ? "90.00,0.00,-2.5000,0.0" : "900,0,-25,0";
     assert(lastNmea == nmea(prefix + position + dualOnly));
     gps::imu.useBNO08x = true;
     gps::imu.yaw = 900; gps::imu.roll = -30; gps::imu.pitch = 20; gps::imu.gyroZ = 5.2;
     gps::imu.correctionHeading = 90 * DEG_TO_RAD;
     gps::imuHandler(); gps::BuildNmea();
-    const std::string imuFields = (userSettings.makeOGI || userSettings.baseLineCheck)
+    const std::string imuFields = userSettings.makeOGI
         ? "90.0,-3.0,2.0,5.2" : "900,-30,20,52";
     assert(lastNmea == nmea(prefix + position + imuFields));
     gps::imu = ImuState{};

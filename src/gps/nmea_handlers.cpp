@@ -7,6 +7,8 @@ You should have received a copy of the GNU General Public License along with thi
 */
 
 #include <Arduino.h>
+#include <cmath>
+#include <cstdlib>
 #include "gps/context.h"
 #include "config/settings.h"
 #include "config/defines.h"
@@ -72,55 +74,30 @@ void VTG_Handler()
 
 void HPR_Handler()
 {
-  context.dualReadyRelPos = true;
-  //digitalWrite(GPSRED_LED, LOW);   //Turn red GPS LED OFF (we are now in dual mode so green LED) - Commented to save ESP32 pins
+    char headingText[sizeof(context.umHeading)]{};
+    char tiltText[sizeof(context.umRoll)]{};
+    char qualityText[4]{};
+    // Não publicar parcialmente uma época nem reutilizar qualidade anterior.
+    context.dualReadyRelPos = false;
+    if (!parser.getArg(1, headingText) || !parser.getArg(2, tiltText) ||
+        !parser.getArg(4, qualityText) || !headingText[0] || !tiltText[0] || !qualityText[0]) return;
+    char* end = nullptr;
+    double heading = strtod(headingText, &end);
+    if (*end || !std::isfinite(heading) || heading < 0 || heading > 360) return;
+    double tilt = strtod(tiltText, &end);
+    if (*end || !std::isfinite(tilt) || abs(tilt) > 180) return;
+    long quality = strtol(qualityText, &end, 10);
+    if (*end || quality < 0 || quality > 9) return;
 
-  // HPR Heading
-  parser.getArg(1, context.umHeading);
-  context.heading = atof(context.umHeading);
-  if ( userSettings.filterHeading )
-    {
-      float tempHeading;
-      tempHeading = headingFilter.updateEstimate(context.heading);
-      context.heading = tempHeading;
-    }
-
-  // HPR Substitute imu.pitch for imu.roll
-  if ( parser.getArg(2, context.umRoll) )
-  {
-    context.rollDual = atof(context.umRoll);
-    //digitalWrite(GPSGREEN_LED, HIGH);   //Turn green GPS LED ON - Commented to save ESP32 pins
-    if ( userSettings.filterRoll )
-      {
-        float tempRoll;
-        tempRoll = rollFilter.updateEstimate(context.rollDual);
-        context.rollDual = tempRoll;
-      }
-  }
-  else
-  {
-    //digitalWrite(GPSGREEN_LED, context.blink);  //Flash the green GPS LED - Commented to save ESP32 pins
-  }
-
-  // Solution quality factor
-  parser.getArg(4, context.solQuality);
-
-  if (context.solQuality >= 4)
-    {
-       if (imu.useBNO08x)
-       {
-           if (userSettings.baseLineCheck)
-           {
-               imuDualDelta();         //Find the error between latest IMU reading and this dual message
-              //context.dualReadyRelPos = false;  //RelPos ready is false because we just saved the error for running from the IMU
-           }
-
-       }
-       else
-       {
-           imuHandler();             //No IMU so use dual data direct
-           context.dualReadyRelPos = true;   //RelPos ready is true so PAOGI will send when the GGA is also ready
-       }
-    }
+    memcpy(context.umHeading, headingText, sizeof(headingText));
+    memcpy(context.umRoll, tiltText, sizeof(tiltText));
+    context.heading = userSettings.filterHeading ? headingFilter.updateEstimate(heading) : heading;
+    if (userSettings.filterRoll) tilt = rollFilter.updateEstimate(tilt);
+    context.rollDual = userSettings.headingcorr == 900 ? tilt : 0;
+    context.pitchDual = userSettings.headingcorr == 0 ? tilt : 0;
+    context.solQuality = static_cast<int>(quality);
+    // Uma época de qualidade baixa permite holdover, mas não recalibra a IMU.
+    context.dualReadyRelPos = true;
+    if (quality >= 4 && imu.useBNO08x && userSettings.baseLineCheck) imuDualDelta();
 }
 }

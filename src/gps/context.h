@@ -13,6 +13,7 @@ struct Context {
     double heading = 0, rollDual = 0, pitchDual = 0;
     double gpsHeading = 0, gyroDelta = 0, imuGPS_Offset = 0, imuCorrected = 0;
     double rollDelta = 0, rollDeltaSmooth = 0;
+    double pitchDelta = 0, pitchDeltaSmooth = 0;
     uint32_t gpsReadyTime = 0;
     bool dualReadyGGA = false, dualReadyRelPos = false, GGA_Available = false, blink = false;
 };
