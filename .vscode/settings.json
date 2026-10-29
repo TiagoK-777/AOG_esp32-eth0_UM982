@@ -1,0 +1,8 @@
+{
+    "git.ignoredRepositories": [
+        ".AOG_Teensy_UM982",
+        ".ESP32-AIO-AG",
+        ".AIO_v4_Firmware_Keya_CANBUS_HPR_Dual_27.04.2025",
+        ".AIO_v4_FirmwareWASBNOkorektaBNO"
+    ]
+}

@@ -8,3 +8,14 @@
 .teensy_firmware
 .teensy_firmware/*
 .*
+
+# Firmwares de referência: somente consulta, fora do repositório principal.
+/.AOG_Teensy_UM982/
+/.ESP32-AIO-AG/
+/.AIO_v4_Firmware_Keya_CANBUS_HPR_Dual_27.04.2025/
+/.AIO_v4_FirmwareWASBNOkorektaBNO/
+
+# Compartilhar somente a configuração que oculta os repositórios de referência.
+!/.vscode/
+/.vscode/*
+!/.vscode/settings.json

@@ -52,7 +52,7 @@ void poll() {
             constexpr size_t MAX_RAW_BYTES_PER_CYCLE = 128;
             size_t bytesToRead = min((size_t)bytesAvailable, MAX_RAW_BYTES_PER_CYCLE);
 
-            uint8_t rxBuffer[128]; // Buffer temporário na Stack
+            uint8_t rxBuffer[MAX_RAW_BYTES_PER_CYCLE]; // Buffer temporário na Stack
             size_t bytesRead = SerialGPS->read(rxBuffer, bytesToRead);
 
             // Processa na velocidade máxima do núcleo (RAM interna)
@@ -130,7 +130,7 @@ void poll() {
             // Puxa apenas o que já está garantido na memória da UART
             size_t bytesToRead = min((size_t)bytesAvailable, MAX_GPS_BYTES_PER_CYCLE);
 
-            uint8_t rxBuffer[64];
+            uint8_t rxBuffer[MAX_GPS_BYTES_PER_CYCLE];
             size_t bytesRead = SerialGPS->read(rxBuffer, bytesToRead);
 
             // Injeta no Glinnes/NMEAParser rodando integralmente na SRAM

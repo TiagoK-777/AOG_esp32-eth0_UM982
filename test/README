@@ -71,6 +71,9 @@ Regras verificadas:
 - GGA/HPR funcionam nas duas ordens de chegada, não repetem épocas e
   respeitam o gate dual. Sem novo HPR, `baseLineCheck=true` aguarda HPR;
   o teste de sinal fraco simula HPR recebido com qualidade abaixo de 4.
+- HPR com quatro casas decimais preserva heading com três dígitos e inclinação
+  negativa, inclusive com zeros à esquerda. Vinte épocas GGA/HPR a 10 Hz no
+  relógio simulado, nas duas ordens pela UART, produzem vinte saídas UDP.
 - HPR incompleto, campo vazio, valor não numérico, NaN/Inf, campo excedido
   ou ângulo fora da faixa não reutiliza qualidade anterior nem altera offsets.
   Checksum inválido não atualiza a navegação; o parser recupera na próxima sentença.

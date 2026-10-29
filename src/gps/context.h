@@ -7,7 +7,9 @@ namespace gps {
 struct Context {
     char fixTime[12]{}, latitude[15]{}, latNS[3]{}, longitude[15]{}, lonEW[3]{};
     char fixQuality[2]{}, numSats[4]{}, HDOP[5]{}, altitude[12]{}, ageDGPS[10]{};
-    char vtgHeading[12]{}, speedKnots[10]{}, umHeading[8]{}, umRoll[8]{};
+    char vtgHeading[12]{}, speedKnots[10]{};
+    // Sinal, três dígitos, ponto, quatro casas decimais e terminador.
+    char umHeading[10]{}, umRoll[10]{};
     char imuHeading[10]{}, imuRoll[10]{}, imuPitch[10]{}, imuYawRate[10]{};
     int solQuality = 0;
     double heading = 0, rollDual = 0, pitchDual = 0;

@@ -56,7 +56,7 @@ void feed(const std::string& body) {
 }
 void hpr(double heading, double tilt, int quality) {
     char body[96];
-    std::snprintf(body, sizeof(body), "GNHPR,123519,%.2f,%.2f,0.0,%d", heading, tilt, quality);
+    std::snprintf(body, sizeof(body), "GNHPR,123519,%.4f,%.4f,0.0,%d", heading, tilt, quality);
     feed(body);
 }
 void reset() {
@@ -133,6 +133,40 @@ void checkEpochs() {
     require(messages.empty(), "HPR sem GGA não envia");
     sendUart(sentence(gga));
     require(messages.size() == 1, "ordem HPR antes de GGA");
+}
+void checkFullPrecisionHpr() {
+    if (single() || fused()) setImu();
+    struct Case { const char* heading; const char* tilt; };
+    const Case cases[] = {
+        {"320.9610", "-66.1712"}, {"000.0000", "-00.0873"},
+        {"359.9999", "090.0000"}, {"100.0000", "-090.0000"}
+    };
+    // Vinte épocas a cada 100 ms, alternando a ordem GGA/HPR na UART.
+    for (unsigned epoch = 0; epoch < 20; ++epoch) {
+        const Case& sample = cases[epoch % 4];
+        char fixTime[12];
+        std::snprintf(fixTime, sizeof(fixTime), "1235%02u.%u0", epoch / 10, epoch % 10);
+        std::string epochGga = gga;
+        epochGga.replace(6, 6, fixTime);
+        const std::string epochHpr = std::string("GNHPR,") + fixTime + "," + sample.heading + "," +
+            sample.tilt + ",000.0000,4,47,0.00,0999";
+        fakeMillis = 100 + epoch * 100;
+        if (epoch % 2 == 0) {
+            sendUart(sentence(epochGga));
+            sendUart(sentence(epochHpr));
+        } else {
+            sendUart(sentence(epochHpr));
+            sendUart(sentence(epochGga));
+        }
+        require(messages.size() == epoch + 1, "uma saída por época com HPR de quatro casas");
+        require(messages.back().find(std::string(",") + fixTime + ",") != std::string::npos,
+            "saída deve corresponder ao GGA da época");
+        require(std::string(gps::context.umHeading) == sample.heading, "heading HPR sem truncamento");
+        require(std::string(gps::context.umRoll) == sample.tilt, "inclinação HPR sem truncamento");
+        near(gps::context.heading, std::atof(sample.heading), "heading HPR de quatro casas");
+        near(gps::context.rollDual, lateral() ? std::atof(sample.tilt) : 0, "roll HPR de quatro casas");
+        near(gps::context.pitchDual, lateral() ? 0 : std::atof(sample.tilt), "pitch HPR de quatro casas");
+    }
 }
 void checkMount() {
     if (single() || fused()) setImu();
@@ -222,7 +256,8 @@ void checkInvalidHpr() {
         "GNHPR,123519,80,-6,0", "GNHPR,123519,,-6,0,4", "GNHPR,123519,no,-6,0,4",
         "GNHPR,123519,nan,-6,0,4", "GNHPR,123519,inf,-6,0,4", "GNHPR,123519,361,-6,0,4",
         "GNHPR,123519,80,nan,0,4", "GNHPR,123519,80,181,0,4", "GNHPR,123519,80,-6,0,4x",
-        "GNHPR,123519,123456789,-6,0,4", "GNHPR,123519,80,,0,4"
+        "GNHPR,123519,123456789,-6,0,4", "GNHPR,123519,80,,0,4",
+        "GNHPR,123519,0000000000000001,-6,0,4", "GNHPR,123519,80,-0000000000000001,0,4"
     };
     for (const char* body : bad) {
         hpr(80, -6, 4);
@@ -285,6 +320,7 @@ int main() {
     struct Test { const char* name; std::function<void()> run; };
     const Test tests[] = {
         {"formato/unidades/checksum", checkFormatter}, {"épocas/ordem/sem repetição", checkEpochs},
+        {"HPR quatro casas/UART/10 Hz", checkFullPrecisionHpr},
         {"roll/pitch conforme montagem", checkMount}, {"qualidade HPR 0..5", checkQuality},
         {"convergência/perda/recuperação", checkHoldoverAndConvergence}, {"heading circular", checkCircularHeading},
         {"checksum/recuperação", checkBadChecksum}, {"HPR inválido/atômico", checkInvalidHpr},
@@ -299,6 +335,6 @@ int main() {
             std::cerr << "FAIL " << test.name << ": " << error.what() << '\n';
         }
     }
-    if (!failures) std::cout << "PASS: navegação (9 grupos)\n";
+    if (!failures) std::cout << "PASS: navegação (10 grupos)\n";
     return failures ? 1 : 0;
 }
