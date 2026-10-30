@@ -136,15 +136,21 @@ ledcWrite(PWM2_RPWM, pwmDrive);
 ## Compilação
 
 ```bash
-# Via PlatformIO
+# Produção, sem logs (também é o padrão de pio run)
 pio run -e wt32-eth01
+
+# Debug, com logs de inicialização/erro e diagnóstico a cada 5 s
+pio run -e wt32-eth01-debug
 
 # Upload
 pio run -e wt32-eth01 -t upload
 
-# Monitor serial
-pio device monitor
+# Upload e monitor serial para diagnóstico
+pio run -e wt32-eth01-debug -t upload
+pio device monitor -e wt32-eth01-debug
 ```
+
+Os ambientes definem `AOG_DEBUG_LOGS=0` (produção) ou `AOG_DEBUG_LOGS=1` (debug). Ambos usam otimização `release`; veja [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) para o escopo dos logs e da coleta de diagnóstico.
 
 ### Upload via ESP Flash Download Tool
 
@@ -211,7 +217,7 @@ Manter mesma configuração de rede:
 
 2. **Configurar AgOpenGPS:** Settings → GPS → UDP → IP `192.168.137.126`, porta `9999`
 3. **Configurar NTRIP** em AgOpenGPS (envia para porta 2233)
-4. **Serial monitor** (115200) deve mostrar:
+4. **Serial monitor** (115200), usando o ambiente `wt32-eth01-debug`, deve mostrar:
    ```text
    Ethernet status OK
    IP set Manually: 192.168.137.126

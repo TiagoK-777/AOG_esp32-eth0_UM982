@@ -21,6 +21,7 @@
 #include "state/guidance_state.h"
 #include "state/steer_state.h"
 #include "state/pending.h"
+#include "diagnostics/log.h"
 namespace autosteer {
 namespace {
 ADS1115_lite adc(ADS1115_DEFAULT_ADDRESS);
@@ -116,14 +117,14 @@ bool setup(bool motorReady) {
     steerSettings = values.steerSettings;
     steerConfig = values.steerConfig;
     available = adc.testConnection() && motorReady;
-    Serial.println(available ? "ADC Connecton OK" : "ADC Connecton FAILED!");
+    AOG_LOG_PRINTLN(available ? "ADC Connecton OK" : "ADC Connecton FAILED!");
     adc.setSampleRate(ADS1115_REG_CONFIG_DR_128SPS);
     adc.setGain(ADS1115_REG_CONFIG_PGA_6_144V);
     adc.setMux(steerConfig.SingleInputWAS ? ADS1115_REG_CONFIG_MUX_SINGLE_0 : ADS1115_REG_CONFIG_MUX_DIFF_0_1);
     if (available) available = adc.triggerConversion();
     status.available = available;
     state::publishSteer(status);
-    Serial.println(available ? "Autosteer running, waiting for AgOpenGPS" : "Autosteer disabled, GPS only mode");
+    AOG_LOG_PRINTLN(available ? "Autosteer running, waiting for AgOpenGPS" : "Autosteer disabled, GPS only mode");
     return available;
 }
 void poll()

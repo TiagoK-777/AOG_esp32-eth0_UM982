@@ -25,7 +25,7 @@ O firmware usa a organização do projeto ESP32-S3 de referência, com somente o
 | `navigation` | 0 | 3 | Passagem a cada 1 ms; RX GNSS limitado a 64 bytes, RVC a 76 bytes, RTK TX a 128 bytes |
 | `network` | 0 | 2 | Passagem a cada 1 ms; até um datagrama por porta e dois envios por passagem |
 | `safety` | 1 | 6 | A cada 20 ms |
-| `loopTask` do Arduino | 1 | 1 | Manutenção a cada 10 ms; diagnóstico a cada 5 s |
+| `loopTask` do Arduino | 1 | 1 | Manutenção a cada 10 ms; diagnóstico a cada 5 s no ambiente debug |
 
 A navegação compartilha o núcleo 0 com a rede, conforme decisão atual do usuário. Nesse núcleo, navegação tem prioridade 3 e rede tem prioridade 2. No núcleo 1 ficam supervisor (6), controle (5) e manutenção (1). Os efeitos dessa afinidade nos picos de duração ainda precisam ser medidos no WT32-ETH01.
 
@@ -34,6 +34,10 @@ As esperas usam o FreeRTOS e liberam a CPU. O gate de 25 ms e a leitura rápida 
 Stacks das quatro tasks próprias são estáticas: 4096, 4096, 4096 e 2048 bytes. A fila UDP possui oito mensagens de até 256 bytes e o FIFO RTK possui 2048 bytes. Bibliotecas Arduino/rede ainda podem alocar memória internamente. Não há dependência de PSRAM.
 
 ### Diagnóstico de temporização
+
+O `platformio.ini` mantém `wt32-eth01` como produção padrão (`AOG_DEBUG_LOGS=0`) e oferece `wt32-eth01-debug` (`AOG_DEBUG_LOGS=1`). Os dois usam a mesma otimização `release`; debug aqui habilita o diagnóstico serial. O define é tratado em `diagnostics/log.h`, com padrão zero fora do PlatformIO. Em produção, as impressões de inicialização/erro e o corpo de `tasks::diagnostics()` são removidos na compilação; o `loop()` também exclui o agendamento do relatório. As macros de log desativadas não avaliam seus argumentos. A coleta de contadores/tempos e as proteções permanecem ativas. O envio NMEA por `sendUSB` é independente dos logs, e as mensagens da ROM/bootloader não são afetadas.
+
+O restante desta seção descreve os relatórios do ambiente `wt32-eth01-debug`.
 
 O `loop()` imprime um bloco a cada 5 s, iniciado por `DIAG uptime=... window=...` em milissegundos. Os acumuladores são retirados e zerados com proteção entre núcleos antes de imprimir. Assim, os picos cobrem todas as passagens desde a coleta anterior, sem perder as janelas intermediárias de 1 s. A primeira janela começa na criação das tasks; o primeiro intervalo de cada medidor é ignorado. Um intervalo que cruza a coleta pertence à janela em que termina. As coletas dos módulos são sequenciais, não um snapshot atômico de todo o sistema.
 
@@ -90,6 +94,7 @@ Portas mantidas: GPS origem 5120, autosteer origem/recepção 8888, RTK recepç�
 
 ```sh
 pio run -e wt32-eth01
+pio run -e wt32-eth01-debug
 python test/run_native.py
 ```
 

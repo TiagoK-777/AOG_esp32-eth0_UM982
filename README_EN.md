@@ -76,7 +76,7 @@ This project uses **PlatformIO**.
 3. **Open the project folder** in VS Code.
 4. **Dependencies:** PlatformIO will automatically download:
     - `SimpleKalmanFilter`
-5. **Build Configuration:** The `platformio.ini` file is pre-configured for the `wt32-eth01` environment.
+5. **Build Configuration:** The `platformio.ini` file defaults to the `wt32-eth01` production environment with logging disabled. Select `wt32-eth01-debug` to enable logging.
 6. **Compile:** Click the "Check" icon (✔) on the PlatformIO bottom toolbar.
 7. **Upload:** Connect the ESP32 via USB (using a Serial-USB adapter, since the WT32-ETH01 does not have native USB for programming) and click the right arrow (➡).
 
@@ -109,9 +109,22 @@ The firmware uses default AgOpenGPS IP addresses:
 
 ## 🔍 Debugging
 
-Monitor the serial output at **115200 baud**.
-- If Ethernet initializes correctly, the local IP address will appear in the monitor.
-- If the GPS is connected, processed NMEA messages will appear according to the configuration.
+PlatformIO environments select the `AOG_DEBUG_LOGS` compile-time define:
+
+| Environment | Define | Firmware logs |
+|---|---|---|
+| `wt32-eth01` (production, default) | `AOG_DEBUG_LOGS=0` | Disabled |
+| `wt32-eth01-debug` | `AOG_DEBUG_LOGS=1` | Startup, errors and diagnostics every 5 s |
+
+```sh
+pio run -e wt32-eth01-debug
+pio run -e wt32-eth01-debug -t upload
+pio device monitor -e wt32-eth01-debug
+```
+
+Monitor serial output at **115200 baud**. Debug shows the local IP and the `DIAG`, `TASK`, `CYCLE`, `ADS`, `MOTOR`, `GPS`, `CONTROL` and `STEER` diagnostics described in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+Both environments use the same `release` optimization to compare timings. Production removes log output and the periodic diagnostics call; counters and safety checks remain active. The `sendUSB` option separately controls serial NMEA data output. ESP32 ROM/bootloader messages are outside this define's scope.
 
 ---
 

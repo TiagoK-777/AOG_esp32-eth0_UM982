@@ -11,6 +11,7 @@ You should have received a copy of the GNU General Public License along with thi
 #include "imu/rvc.h"
 #include "config/pinout.h"
 #include "config/defines.h"
+#include "diagnostics/log.h"
 namespace imu {
 namespace {
 HardwareSerial SerialRVC(1);
@@ -196,8 +197,8 @@ void readBNO(ImuState& sample, const Setup& steerConfig)
                             // Checksum failed
                             checksumErrors++;
                             if(checksumErrors % 100 == 0) {
-                                Serial.print("RVC checksum errors: ");
-                                Serial.println(checksumErrors);
+                                AOG_LOG_PRINT("RVC checksum errors: ");
+                                AOG_LOG_PRINTLN(checksumErrors);
                             }
                         }
 
@@ -215,14 +216,14 @@ void setup() {
     SerialRVC.setRxBufferSize(256);
     SerialRVC.begin(115200, SERIAL_8N1, RVC_RX_PIN, -1);
     startedMs = millis();
-    Serial.println("BNO085 UART-RVC initialized on GPIO2");
+    AOG_LOG_PRINTLN("BNO085 UART-RVC initialized on GPIO2");
 }
 void poll(ImuState& sample, const Setup& config) {
     uint32_t before = sample.rvcPacketCount;
     readBNO(sample, config);
-    if (before == 0 && sample.rvcPacketCount != 0) Serial.println("RVC sync found!");
+    if (before == 0 && sample.rvcPacketCount != 0) AOG_LOG_PRINTLN("RVC sync found!");
     if (!reportedMissing && sample.rvcPacketCount == 0 && millis() - startedMs >= 2000) {
-        Serial.println("WARNING: No RVC packets detected! Check BNO085 connection.");
+        AOG_LOG_PRINTLN("WARNING: No RVC packets detected! Check BNO085 connection.");
         reportedMissing = true;
     }
     // A UART continua sendo atendida para permitir recuperação da IMU.

@@ -21,6 +21,7 @@ Forked from https://github.com/AgHardware/Boards/blob/main/TeensyModules/AIO%20S
 #include "network/udp_rx.h"
 #include "state/pending.h"
 #include "tasks.h"
+#include "diagnostics/log.h"
 
 /************************* User Settings *************************/
 const UserSettings userSettings = []() constexpr {
@@ -40,22 +41,22 @@ const UserSettings userSettings = []() constexpr {
 namespace { bool running = false; }
 void setup() {
     Serial.begin(115200);
-    Serial.println("Start setup");
+    AOG_LOG_PRINTLN("Start setup");
     bool motorReady = motor::setup();
     ConfigSnapshot values;
     bool settingsReady = persist::load(values);
-    if (!settingsReady) Serial.println("NVS load FAILED - steering disabled");
+    if (!settingsReady) AOG_LOG_PRINTLN("NVS load FAILED - steering disabled");
     config::publish(values);
     bool available = autosteer::setup(motorReady && settingsReady);
     gps::setup();
     if (!ethernet::setup(available) || !network::setup()) {
-        Serial.println("Network initialization FAILED - motor disabled");
+        AOG_LOG_PRINTLN("Network initialization FAILED - motor disabled");
         motor::stop();
         return;
     }
     running = tasks::create();
-    if (!running) { motor::stop(); Serial.println("Task initialization FAILED - motor disabled"); }
-    Serial.println("End setup, waiting for GPS...");
+    if (!running) { motor::stop(); AOG_LOG_PRINTLN("Task initialization FAILED - motor disabled"); }
+    AOG_LOG_PRINTLN("End setup, waiting for GPS...");
 }
 void loop() {
     if (running) {
@@ -63,18 +64,20 @@ void loop() {
         if (pending::takePersistence(update)) {
             // A task de controle já confirmou o corte antes de entregar este pedido.
             if (persist::save(update.values, update.mask)) {
-                Serial.println("Configuration saved to NVS");
+                AOG_LOG_PRINTLN("Configuration saved to NVS");
                 if (update.mask & pending::Network) ESP.restart();
                 pending::finishPersistence();
             } else {
-                Serial.println("NVS save FAILED - steering remains disabled");
+                AOG_LOG_PRINTLN("NVS save FAILED - steering remains disabled");
             }
         }
+#if AOG_DEBUG_LOGS
         static uint32_t lastDiagnostic = 0;
         if (millis() - lastDiagnostic >= 5000) {
             lastDiagnostic = millis();
             tasks::diagnostics();
         }
+#endif
     }
     vTaskDelay(pdMS_TO_TICKS(MAINTENANCE_PERIOD_MS));
 }
