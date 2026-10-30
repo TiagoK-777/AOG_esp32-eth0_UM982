@@ -16,7 +16,6 @@ Forked from https://github.com/AgHardware/Boards/blob/main/TeensyModules/AIO%20S
 #include "persist/preferences.h"
 #include "autosteer/autosteer_task.h"
 #include "hardware/motor_pwm.h"
-#include "gps/gps.h"
 #include "network/ethernet.h"
 #include "network/udp_rx.h"
 #include "state/pending.h"
@@ -48,7 +47,6 @@ void setup() {
     if (!settingsReady) AOG_LOG_PRINTLN("NVS load FAILED - steering disabled");
     config::publish(values);
     bool available = autosteer::setup(motorReady && settingsReady);
-    gps::setup();
     if (!ethernet::setup(available) || !network::setup()) {
         AOG_LOG_PRINTLN("Network initialization FAILED - motor disabled");
         motor::stop();

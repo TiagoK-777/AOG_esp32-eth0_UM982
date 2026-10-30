@@ -32,12 +32,14 @@ Firmware originalmente desenvolvido para Teensy 4.1 foi portado para ESP32 WT32-
 > A correção RTK entra somente por **UDP** (porta 2233) e é repassada ao GPS via
 > `FIFO RTK → SerialGPS->write() na task de navegação`.
 
-**Configuração (em `setup()` de `gps/gps_task.cpp`):**
+**Configuração (em `gps::setup()` de `gps/gps_task.cpp`, chamado uma vez pela task de navegação no núcleo 0):**
 ```cpp
 SerialGPS->begin(baudGPS, SERIAL_8N1, 5, 17);   // GPS UM982 (RX=5, TX=17) @ 460800
 //SerialRTK.begin(baudRTK, SERIAL_8N1, 4, 2);   // DESABILITADO (colide com BNO085 RVC)
 SerialRVC.begin(115200, SERIAL_8N1, 2, -1); // src/imu/rvc.cpp     // BNO085 UART-RVC (RX=GPIO2, TX não usado)
 ```
+
+As duas UARTs são inicializadas pela própria navegação antes da primeira leitura, para instalar suas ISRs no núcleo 0. Não chamar `gps::setup()` no `setup()` do Arduino, que executa no núcleo 1. O ambiente debug imprime `Navigation UARTs initialized on core 0` após essa inicialização; validar em bancada o tráfego GPS/IMU/RTK e as transições de engajamento.
 
 ### 4. I2C (Wire)
 - ✅ `Wire1` → `Wire`

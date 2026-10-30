@@ -37,6 +37,11 @@ void worker(void* argument) {
         motor::stop();
         vTaskSuspend(nullptr);
     }
+    if (task.id == Navigation) {
+        // begin() instala a ISR da UART no núcleo que executa a inicialização.
+        gps::setup();
+        AOG_LOG_PRINTF("Navigation UARTs initialized on core %d\n", xPortGetCoreID());
+    }
     TickType_t wake = xTaskGetTickCount();
     for (;;) {
         uint32_t started = micros();

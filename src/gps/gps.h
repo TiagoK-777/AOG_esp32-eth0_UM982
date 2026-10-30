@@ -8,6 +8,7 @@ struct Stats {
     uint32_t backlogMax = 0, ggaGapUs = 0, pandaGapUs = 0;
 };
 Stats stats();
+// Inicializa GPS e IMU uma vez, na task de navegação, antes de poll().
 void setup();
 void poll();
 }
