@@ -33,6 +33,37 @@ As esperas usam o FreeRTOS e liberam a CPU. O gate de 25 ms e a leitura rápida 
 
 Stacks das quatro tasks próprias são estáticas: 4096, 4096, 4096 e 2048 bytes. A fila UDP possui oito mensagens de até 256 bytes e o FIFO RTK possui 2048 bytes. Bibliotecas Arduino/rede ainda podem alocar memória internamente. Não há dependência de PSRAM.
 
+### Diagnóstico de temporização
+
+O `loop()` imprime um bloco a cada 5 s, iniciado por `DIAG uptime=... window=...` em milissegundos. Os acumuladores são retirados e zerados com proteção entre núcleos antes de imprimir. Assim, os picos cobrem todas as passagens desde a coleta anterior, sem perder as janelas intermediárias de 1 s. A primeira janela começa na criação das tasks; o primeiro intervalo de cada medidor é ignorado. Um intervalo que cruza a coleta pertence à janela em que termina. As coletas dos módulos são sequenciais, não um snapshot atômico de todo o sistema.
+
+| Linha/campo | Significado |
+|---|---|
+| `TASK ... Hz` | Média de passagens na janela `window`, não garantia de espaçamento uniforme |
+| `TASK peak` | Maior duração do handler, em us, incluindo esperas e preempções |
+| `gapMax` | Maior intervalo entre inícios de passagens/ciclos, em us; revela pausas escondidas pela média em Hz |
+| `TASK lateMax` / `late` | Maior atraso em ms e quantidade de inícios atrasados pelo menos um tick em relação ao tick programado por `vTaskDelayUntil`; resolução de 1 ms no SDK atual |
+| `TASK over` | Passagens cujo handler durou mais que o período nominal (1 ms ou 20 ms) |
+| `CYCLE n/peak/gapMax` | Quantidade, maior duração e maior intervalo entre inícios dos ciclos efetivos de controle de 25 ms |
+| `CYCLE lateMax/late` | Excesso sobre o gate de 25 ms, em ms, e quantidade de ciclos com excesso; o primeiro ciclo é ignorado para atraso |
+| `CYCLE over25ms` | Ciclos com duração maior que 25 ms |
+| `ADS n/peak` | Quantidade e maior duração do bloco de leitura e disparo da próxima conversão do ADS1115 dentro do ciclo |
+| `MOTOR stop/control`, `stop/safety`, `stop/other` | Cortes separados por origem; `other` inclui falhas de inicialização/watchdog |
+| `MOTOR drive`, `epoch` | Escrita de PWM (inclui rejeições por geração antiga) e leitura da geração |
+| `MOTOR n/totalMax/waitMax/bodyMax` | Quantidade e máximos em us: da entrada até antes de liberar o mutex; da entrada até adquirir o mutex; e da aquisição até antes de liberá-lo |
+
+Os máximos de espera, corpo e total podem vir de chamadas diferentes: não devem ser somados. O corpo de `stop` contém GPIO e, quando necessário, as duas chamadas LEDC; `waitMax` inclui tanto a espera pela trava quanto eventuais preempções antes de adquiri-la. Todos os tempos são de relógio, não consumo exclusivo de CPU. A instrumentação acrescenta leituras de relógio e seções críticas curtas; nenhuma impressão ocorre nas tasks medidas nem segurando o mutex do motor. O diagnóstico não altera prioridades, períodos, PWM ou lei de controle.
+
+`CONTROL cycles/peak`, contadores de perdas e mínimo de stack continuam acumulados desde a inicialização. Os contadores `TASK`, `CYCLE`, `ADS` e `MOTOR` são por janela.
+
+As linhas `GPS` mostram contadores acumulados e as taxas médias na janela `DIAG`: `gga` conta GGA aceitas pelo parser; `hpr`, HPR aceitos pelo handler; `panda`, PANDA/PAOGI montadas; `queued`, as montadas que entraram na fila; `tx`, datagramas GPS cujo envio foi aceito pela pilha UDP. Esse último valor não confirma recepção no PC e, em passthrough, conta sentenças raw. Não há temporizador artificial para produzir 10 Hz: a saída continua dirigida pelas sentenças de entrada. A média de uma janela curta pode oscilar por eventos próximos às bordas; comparar também os totais ao longo de várias janelas.
+
+`gapGga`, `gapPanda` e `gapTx` são os maiores intervalos entre eventos em us, acumulados desde o boot, ignorando o primeiro. `GPS RX` traz bytes lidos e maior backlog observado no buffer de software, erros do parser (`nmeaErr`, incluindo `crcErr`), overflow da FIFO física (`fifoOvf`), buffer RX cheio (`rxFull`), erros de enquadramento/paridade (`frameErr`, `parityErr`), falhas de montagem (`buildFail`) e falhas de envio GPS (`txFail`). Eventos UART são contabilizados por callback com atômicos; contadores de navegação e rede usam snapshots protegidos de seus respectivos produtores. A fila de eventos UART é finita: zero erros registrados não é prova absoluta de ausência de perda. As contagens não identificam épocas UTC distintas ou duplicadas.
+
+Para o simulador de 10 Hz, comparar GGA/PANDA/TX e seus intervalos. GGA abaixo de 10 Hz com erros aponta para recepção/parser; GGA correta com PANDA menor pede verificar gate/montagem; PANDA correta com `queued` menor indica fila; `tx` menor pede conferir fila/envio. Se as três taxas estiverem corretas, investigar o percurso até AgIO/AOG e sua janela de cálculo. Os snapshots de cada estágio são sequenciais e podem diferir transitoriamente por mensagens em trânsito.
+
+Para investigar os atrasos, capturar blocos completos com GPS/IMU/RTK ativos: primeiro parado com PWM zero; depois em bancada com Free Drive e variações de ângulo; por fim desengajado. Anotar as transições. Comparar `stop/safety waitMax` com `stop/control bodyMax`, `CYCLE peak` com `ADS peak` e `TASK lateMax/gapMax` nos dois núcleos. Os logs localizam o caminho que demora, mas não identificam sozinhos uma ISR ou task interna que tenha causado a preempção.
+
 ## Fluxos
 
 1. AgIO/AOG envia PGNs na porta 8888. Rede valida cabeçalho, tamanho declarado e checksum. O PGN 254 publica um comando completo, com instante de recepção e sequência; mensagens inválidas não renovam o prazo da direção.
@@ -48,7 +79,7 @@ Portas mantidas: GPS origem 5120, autosteer origem/recepção 8888, RTK recepç�
 - Prazo de comando: 2500 ms desde o último PGN 254 válido, equivalente nominal ao contador anterior de 100 ciclos de 25 ms; subtrações sem sinal toleram o wrap de `millis()`.
 - Supervisor: motor desligado com direção indisponível, direção desengajada, chave desligada, guidance desligado, velocidade fora da faixa de PWM ou ciclo concluído há mais de 100 ms.
 - Engajamento e PWM são independentes: com guidance válido e entrada habilitada, o piloto pode ficar engajado parado; o PWM fica zerado abaixo de 1,5 km/h. Controle e supervisor usam a mesma faixa de PWM (1,5 a 25 km/h). O limite superior de 25 km/h também desengaja a entrada, como antes.
-- Saída do motor: um mutex serializa corte e PWM; cada corte incrementa uma geração. Um cálculo anterior ao corte não pode reaplicar PWM com a geração antiga.
+- Saída do motor: um mutex serializa corte e PWM; cada corte incrementa uma geração. Um cálculo anterior ao corte não pode reaplicar PWM com a geração antiga. O corte sempre força DIR/enable em LOW. As duas escritas LEDC de zero só são omitidas se o corte anterior teve sucesso em ambas e nenhum `drive` válido ocorreu desde então; falhas exigem nova tentativa. Isso evita reprogramar repetidamente duty zero, que no ESP32 clássico pode esperar pela atualização anterior dentro da seção crítica do driver LEDC. O cache é privado e protegido pelo mesmo mutex. Frequência e lei de controle permanecem iguais.
 - ADS1115: timeout I2C de 3 ms por transação; erros de transmissão e respostas incompletas desengajam a direção. Conversão é iniciada para a leitura seguinte.
 - Watchdog FreeRTOS: quatro tasks registradas, timeout de 2 s com panic/reset. Gravação de flash pode suspender ambas as CPUs; o corte acontece antes de iniciar a persistência.
 - Falha de carga NVS impede engajamento; falha de gravação mantém a direção bloqueada até reiniciar. Chaves `st_*`, `sc_*`, `ip_*` e `ident=2400` permanecem iguais às anteriores, inclusive seus tipos.

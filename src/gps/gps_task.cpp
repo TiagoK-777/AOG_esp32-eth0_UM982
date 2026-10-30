@@ -15,6 +15,8 @@ You should have received a copy of the GNU General Public License along with thi
 #include "config/pinout.h"
 #include "network/udp_tx.h"
 #include "network/rtcm_buffer.h"
+#include "state/shared_value.h"
+#include <atomic>
 namespace gps {
 Context context;
 ImuState imu;
@@ -26,6 +28,41 @@ HardwareSerial* SerialGPS = &Serial2;
 bool gotCR = false, gotLF = false, gotDollar = false;
 char msgBuf[254];
 int msgBufLen = 0;
+Stats counters;
+SharedValue<Stats> published;
+std::atomic<uint32_t> fifoErrors{0}, bufferErrors{0}, frameErrors{0}, parityErrors{0};
+uint32_t lastGgaUs = 0, lastPandaUs = 0;
+void uartError(hardwareSerial_error_t error) {
+    if (error == UART_FIFO_OVF_ERROR) ++fifoErrors;
+    else if (error == UART_BUFFER_FULL_ERROR) ++bufferErrors;
+    else if (error == UART_FRAME_ERROR) ++frameErrors;
+    else if (error == UART_PARITY_ERROR) ++parityErrors;
+}
+void observeBacklog(int bytes) {
+    if (bytes > 0 && static_cast<uint32_t>(bytes) > counters.backlogMax) counters.backlogMax = bytes;
+}
+}
+Stats stats() {
+    Stats value = published.snapshot();
+    value.uartFifo = fifoErrors.load(); value.uartBuffer = bufferErrors.load();
+    value.uartFrame = frameErrors.load(); value.uartParity = parityErrors.load();
+    return value;
+}
+void recordGga() {
+    uint32_t now = micros();
+    if (counters.gga && now - lastGgaUs > counters.ggaGapUs) counters.ggaGapUs = now - lastGgaUs;
+    lastGgaUs = now;
+    ++counters.gga;
+}
+void recordHpr() { ++counters.hpr; }
+void recordNmeaError(bool crc) { ++counters.nmeaErrors; if (crc) ++counters.crcErrors; }
+void recordPanda(bool built, bool queued) {
+    if (!built) { ++counters.buildFailed; return; }
+    uint32_t now = micros();
+    if (counters.panda && now - lastPandaUs > counters.pandaGapUs) counters.pandaGapUs = now - lastPandaUs;
+    lastPandaUs = now;
+    ++counters.panda;
+    if (queued) ++counters.queued;
 }
 void setup() {
     parser.setErrorHandler(errorHandler);
@@ -35,6 +72,7 @@ void setup() {
     SerialGPS->setRxBufferSize(1024);
     SerialGPS->setTxBufferSize(2048);
     SerialGPS->begin(460800, SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN);
+    SerialGPS->onReceiveError(uartError);
     ::imu::setup();
 }
 void poll() {
@@ -45,6 +83,7 @@ void poll() {
         // Modo raw: captura sentença completa NMEA e envia via UDP/USB
         // Otimizado: Leitura em bloco para eliminar o overhead de chamadas sucessivas à UART
         int bytesAvailable = SerialGPS->available();
+        observeBacklog(bytesAvailable);
 
         if (bytesAvailable > 0)
         {
@@ -54,6 +93,7 @@ void poll() {
 
             uint8_t rxBuffer[MAX_RAW_BYTES_PER_CYCLE]; // Buffer temporário na Stack
             size_t bytesRead = SerialGPS->read(rxBuffer, bytesToRead);
+            counters.rxBytes += bytesRead;
 
             // Processa na velocidade máxima do núcleo (RAM interna)
             for (size_t i = 0; i < bytesRead; i++)
@@ -124,6 +164,7 @@ void poll() {
         // Limite por ciclo distribui o processamento sem corromper o parser (state-machine stateful)
         constexpr size_t MAX_GPS_BYTES_PER_CYCLE = 64;
         int bytesAvailable = SerialGPS->available();
+        observeBacklog(bytesAvailable);
 
         if (bytesAvailable > 0)
         {
@@ -132,6 +173,7 @@ void poll() {
 
             uint8_t rxBuffer[MAX_GPS_BYTES_PER_CYCLE];
             size_t bytesRead = SerialGPS->read(rxBuffer, bytesToRead);
+            counters.rxBytes += bytesRead;
 
             // Injeta no Glinnes/NMEAParser rodando integralmente na SRAM
             for (size_t i = 0; i < bytesRead; i++)
@@ -156,5 +198,6 @@ void poll() {
         size_t count = rtcm::read(bytes, capacity);
         if (count) SerialGPS->write(bytes, count);
     }
+    published.publish(counters);
 }
 }

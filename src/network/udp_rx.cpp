@@ -24,6 +24,7 @@ namespace {
 WiFiUDP steerSocket, ntripSocket, gpsSocket;
 uint8_t receiveBuffer[1460];
 uint8_t sensorCount = 0;
+uint32_t lastGpsSentUs = 0;
 network::Stats counters{};
 SharedValue<network::Stats> publishedCounters;
 bool statusPending = false;
@@ -140,6 +141,14 @@ void poll() {
         if (ok) ok = socket.write(packet.payload, packet.length) == packet.length;
         if (ok) ok = socket.endPacket() == 1;
         if (!ok) ++counters.sendFailures;
+        if (packet.channel == udp_tx::Channel::GPS) {
+            if (ok) {
+                uint32_t now = micros();
+                if (counters.gpsSent && now - lastGpsSentUs > counters.gpsGapUs) counters.gpsGapUs = now - lastGpsSentUs;
+                lastGpsSentUs = now;
+                ++counters.gpsSent;
+            } else ++counters.gpsFailed;
+        }
     }
     publishedCounters.publish(counters);
 }

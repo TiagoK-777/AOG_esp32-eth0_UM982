@@ -28,6 +28,8 @@ Storage steerSettings;
 Setup steerConfig;
 GuidanceCommand command;
 SteerStatus status;
+diagnostics::TimingCounters cycleTiming, adcTiming;
+uint32_t cycleLateMs = 0;
 bool available = false, commandEnabled = false;
 uint32_t autsteerLastTime = 0, currentTime = 0, consumedTransition = 0;
 uint8_t workSwitch = 0, steerSwitch = 1, remoteSwitch = 0, switchByte = 2;
@@ -58,7 +60,7 @@ void disengage() {
     commandEnabled = false;
     steerSwitch = 1; currentState = 1; previous = 0;
     pwmDrive = 0; pwmDisplay = 0;
-    motor::stop();
+    motor::stop(motor::StopSource::Control);
 }
 void publishCycle(uint32_t startUs) {
     status.available = available;
@@ -74,6 +76,7 @@ void publishCycle(uint32_t startUs) {
     ++status.cycles;
     uint32_t duration = micros() - startUs;
     if (duration > status.maxCycleUs) status.maxCycleUs = duration;
+    cycleTiming.record(startUs, duration, cycleLateMs, CONTROL_PERIOD_MS * 1000);
     state::publishSteer(status);
 }
 void applyPending() {
@@ -99,6 +102,8 @@ void applyPending() {
     state::publishSteer(status);
 }
 }
+diagnostics::Timing takeCycleTiming() { return cycleTiming.take(); }
+diagnostics::Timing takeAdcTiming() { return adcTiming.take(); }
 bool setup(bool motorReady) {
     analogReadResolution(12);
     analogSetAttenuation(ADC_11db);
@@ -136,6 +141,7 @@ void poll()
 
   if (currentTime - autsteerLastTime >= CONTROL_PERIOD_MS)
   {
+    cycleLateMs = status.cycles ? currentTime - autsteerLastTime - CONTROL_PERIOD_MS : 0;
     autsteerLastTime = currentTime;
     uint32_t startUs = micros();
     uint32_t outputEpoch = motor::epoch();
@@ -232,6 +238,7 @@ void poll()
 
 
 
+    uint32_t adcStartedUs = micros();
     bool adcOk = true;
     if (steerConfig.SingleInputWAS)   //Single Input ADS
     {
@@ -253,6 +260,7 @@ void poll()
     }
 
 
+    adcTiming.record(adcStartedUs, micros() - adcStartedUs, 0, CONTROL_PERIOD_MS * 1000);
     if (!available || !adcOk || !std::isfinite(steerSettings.steerSensorCounts) || steerSettings.steerSensorCounts <= 0) {
       disengage();
       publishCycle(startUs);
@@ -290,7 +298,7 @@ void poll()
       pwmDrive = calcSteeringPID(steerAngleError, steerSettings, steerConfig);
       pwmDisplay = motor::drive(pwmDrive, steerConfig, outputEpoch);
     } else {
-      motor::stop();
+      motor::stop(motor::StopSource::Control);
       pwmDrive = 0;
       pwmDisplay = 0;
       pulseCount = 0;

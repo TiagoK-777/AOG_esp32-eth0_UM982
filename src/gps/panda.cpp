@@ -22,12 +22,16 @@ void BuildNmea() {
         c.latitude, c.latNS, c.longitude, c.lonEW, c.fixQuality,
         c.numSats, c.HDOP, c.altitude, c.ageDGPS, c.speedKnots,
         c.imuHeading, c.imuRoll, c.imuPitch, c.imuYawRate);
-    if (length < 0 || static_cast<size_t>(length) + 4 >= sizeof(nmea)) return;
+    if (length < 0 || static_cast<size_t>(length) + 4 >= sizeof(nmea)) {
+        recordPanda(false, false);
+        return;
+    }
     uint8_t sum = 0;
     for (int i = 1; i < length - 1; ++i) sum ^= static_cast<uint8_t>(nmea[i]);
     snprintf(nmea + length, sizeof(nmea) - length, "%02X\r\n", sum);
     length += 4;
     if (userSettings.sendUSB) Serial.write(reinterpret_cast<const uint8_t*>(nmea), length);
-    udp_tx::enqueue(udp_tx::Channel::GPS, reinterpret_cast<const uint8_t*>(nmea), length);
+    bool queued = udp_tx::enqueue(udp_tx::Channel::GPS, reinterpret_cast<const uint8_t*>(nmea), length);
+    recordPanda(true, queued);
 }
 }

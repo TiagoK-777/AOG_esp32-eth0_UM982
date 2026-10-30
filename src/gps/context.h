@@ -31,4 +31,9 @@ void imuHandler();
 void imuDualDelta();
 void fuseIMU();
 void BuildNmea();
+// Instrumentação privada; os handlers e a montagem pertencem à navegação.
+void recordGga();
+void recordHpr();
+void recordNmeaError(bool crc);
+void recordPanda(bool built, bool queued);
 }

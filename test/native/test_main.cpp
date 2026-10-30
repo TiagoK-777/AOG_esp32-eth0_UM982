@@ -127,6 +127,8 @@ void checkNavigation() {
 void checkNavigationTask() {
     gps::context.dualReadyGGA = false;
     gps::context.dualReadyRelPos = false;
+    gps::poll();
+    auto initial = gps::stats();
     std::string bytes = nmea("GNGGA,123520,4807.038,N,01131.000,E,4,08,0.9,545.4,M,46.9,M,1.2,0000") +
         nmea("GNVTG,054.7,T,034.4,M,005.5,N,010.2,K") + nmea("GNHPR,123520,90.0,-2.5,0.0,4");
     for (uint8_t byte : bytes) fakeUartRx[2].push_back(byte);
@@ -138,6 +140,21 @@ void checkNavigationTask() {
     assert(fakeUartTx[2].size() == correction.size());
     assert(std::equal(correction.begin(), correction.end(), fakeUartTx[2].begin()));
     assert(lastNmea.find(",123520,") != std::string::npos);
+    auto observed = gps::stats();
+    assert(observed.gga == initial.gga + 1 && observed.hpr == initial.hpr + 1);
+    assert(observed.panda == initial.panda + 1 && observed.queued == initial.queued + 1);
+    assert(observed.rxBytes == initial.rxBytes + bytes.size());
+    auto corrupt = nmea("GNGGA,123521,4807.038,N,01131.000,E,4,08,0.9,545.4,M,46.9,M,1.2,0000");
+    corrupt[corrupt.find('*') + 1] = 'Z';
+    for (uint8_t byte : corrupt) fakeUartRx[2].push_back(byte);
+    for (unsigned i = 0; i < 3; ++i) { ++fakeMillis; gps::poll(); }
+    auto rejected = gps::stats();
+    assert(rejected.nmeaErrors > observed.nmeaErrors && rejected.gga == observed.gga);
+    assert(fakeUartErrorCallback[2]);
+    fakeUartErrorCallback[2](UART_FIFO_OVF_ERROR);
+    fakeUartErrorCallback[2](UART_BUFFER_FULL_ERROR);
+    assert(gps::stats().uartFifo == initial.uartFifo + 1);
+    assert(gps::stats().uartBuffer == initial.uartBuffer + 1);
 }
 
 void checkNvsCompatibility() {
@@ -211,6 +228,35 @@ void checkMotorAndAdc() {
     assert(motor::drive(-30, setup, motor::epoch()) == 30);
     assert(fakePwm[PWM1_LPWM] == 0 && fakePwm[PWM2_RPWM] == 30);
     motor::stop();
+    motor::takeTiming();
+    assert(motor::drive(-30, setup, motor::epoch()) == 30);
+    uint32_t previousOffset = fakeMicrosOffset;
+    // A duração de duas escritas deve aparecer no corpo, não na espera da trava.
+    fakeMicrosOffset = UINT32_MAX - fakeMillis * 1000 - 1000;
+    fakeLedcWriteUs = 2000;
+    motor::stop(motor::StopSource::Control);
+    uint32_t stoppedToken = motor::epoch();
+    uint32_t firstWrites = fakeLedcWrites[PWM1_LPWM], secondWrites = fakeLedcWrites[PWM2_RPWM];
+    motor::stop(motor::StopSource::Safety);
+    auto measured = motor::takeTiming();
+    for (unsigned i = 0; i < 2; ++i) {
+        assert(measured.operations[i].calls == 1);
+        assert(measured.operations[i].totalUs == (i == 0 ? 4000u : 0u));
+        assert(measured.operations[i].bodyUs == (i == 0 ? 4000u : 0u));
+        assert(measured.operations[i].waitUs == 0);
+    }
+    for (const auto& entry : motor::takeTiming().operations) assert(entry.calls == 0);
+    assert(fakeLedcWrites[PWM1_LPWM] == firstWrites && fakeLedcWrites[PWM2_RPWM] == secondWrites);
+    assert(motor::drive(-30, setup, stoppedToken) == 0); // O corte repetido ainda invalida a geração.
+    fakeLedcWriteUs = 0;
+    fakeMicrosOffset = previousOffset;
+    assert(motor::drive(-30, setup, motor::epoch()) == 30);
+    fakeLedcFailPin = PWM2_RPWM;
+    motor::stop();
+    assert(fakePins[DIR1_RL_ENABLE] == LOW && fakePwm[PWM2_RPWM] == 30);
+    fakeLedcFailPin = -1;
+    motor::stop(); // Falha anterior impede o cache e exige nova tentativa.
+    assert(fakePwm[PWM1_LPWM] == 0 && fakePwm[PWM2_RPWM] == 0);
     ADS1115_lite adc;
     int16_t result = 0;
     assert(adc.getConversion(result) && result == 13610);
@@ -219,6 +265,31 @@ void checkMotorAndAdc() {
     Wire.count = 2; Wire.error = 2;
     assert(!adc.getConversion(result) && !adc.triggerConversion());
     Wire.error = 0;
+}
+
+void checkTiming() {
+    diagnostics::TimingCounters timing;
+    timing.record(UINT32_MAX - 499, 1500, 2, 1000);
+    timing.record(500, 100, 0, 1000);
+    auto first = timing.take();
+    assert(first.calls == 2 && first.peakUs == 1500 && first.gapUs == 1000);
+    assert(first.lateMs == 2 && first.lateStarts == 1 && first.overBudget == 1);
+    assert(timing.take().calls == 0);
+    timing.record(5500, 40, 0, 1000);
+    auto second = timing.take();
+    assert(second.calls == 1 && second.peakUs == 40 && second.gapUs == 5000);
+    assert(second.lateStarts == 0 && second.overBudget == 0);
+    // Trocar a janela concorrentemente não pode perder nem duplicar amostras.
+    std::atomic<bool> done{false};
+    std::thread producer([&] {
+        for (uint32_t i = 0; i < 20000; ++i) timing.record(6000 + i, 10, 0, 1000);
+        done = true;
+    });
+    uint32_t calls = 0;
+    while (!done.load()) calls += timing.take().calls;
+    producer.join();
+    calls += timing.take().calls;
+    assert(calls == 20000);
 }
 
 void checkControlAndPersistence() {
@@ -271,6 +342,7 @@ int main() {
     gps::setup();
     checkPid(); checkProtocol(); checkNavigation(); checkRtcm(); checkSnapshots();
     checkNavigationTask();
+    checkTiming();
     checkMotorAndAdc(); checkControlAndPersistence(); checkRvc(); checkNvsCompatibility();
     std::cout << "PASS: PID, PGNs, NMEA/PANDA, RTCM, snapshots, motor, ADS1115, controle, staging, RVC e NVS\n";
 }

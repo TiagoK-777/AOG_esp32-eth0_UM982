@@ -18,6 +18,6 @@ void poll() {
     if (!status.available || !status.engaged || status.steerSwitch || !commandFresh(now, command) ||
         !(command.guidanceStatus & 1) || !pwmSpeedAllowed(command) ||
         (status.cycles && now - status.completedMs > CONTROL_STALE_MS) || pending::maintenanceActive())
-        motor::stop();
+        motor::stop(motor::StopSource::Safety);
 }
 }

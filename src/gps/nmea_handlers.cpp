@@ -15,11 +15,12 @@ You should have received a copy of the GNU General Public License along with thi
 namespace gps {
 void errorHandler()
 {
-  // Error handling can be added here if needed
+  recordNmeaError(parser.error() == NMEA::CRC_ERROR);
 }
 
 void GGA_Handler() //Rec'd GGA
 {
+    recordGga();
     // fix time
     parser.getArg(0, context.fixTime);
 
@@ -98,6 +99,7 @@ void HPR_Handler()
     context.solQuality = static_cast<int>(quality);
     // Uma época de qualidade baixa permite holdover, mas não recalibra a IMU.
     context.dualReadyRelPos = true;
+    recordHpr();
     if (quality >= 4 && imu.useBNO08x && userSettings.baseLineCheck) imuDualDelta();
 }
 }
