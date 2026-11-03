@@ -13,6 +13,12 @@ pio run -e wt32-eth01
 python test/run_native.py
 ```
 
+## 24-hour synthetic performance and stability test
+
+A bench test on October 30–31, 2026 used simulated GPS at 10 Hz with the BNO085, motor and RTK active. **17,293 diagnostic reports** cover **24 h 02 min**, with a mean rate of **10.00013 Hz** for accepted GGA, generated PANDA/PAOGI and GPS sends accepted by the UDP stack. The report includes task performance and jitter, control timings, heap, error counters and an explanation of the short-window Hz spikes. HPR was intentionally disabled during the test.
+
+[Read the full report, plots, conditions and reproducible data (Portuguese)](docs/performance/2026-10-30/README.md).
+
 ## 🚀 Key Features
 
 - **Ethernet Communication:** Native UDP via LAN8720 (WT32-ETH01).

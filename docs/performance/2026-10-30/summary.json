@@ -1,0 +1,450 @@
+{
+  "source": {
+    "file": "Servidor · Serial COM7 - 2026-10-30T13_39_00 · ao vivo.json",
+    "sha256": "fbf411cede67958eed348d72cef6e16044c1f085f05724574834b73310bfb293",
+    "bytes": 91674979,
+    "schema": "ploty-wt32-v1"
+  },
+  "reports": 17293,
+  "complete_reports": 17293,
+  "boot_segments": 1,
+  "received_at_utc": {
+    "first": "2026-10-30T16:39:30.982Z",
+    "last": "2026-10-31T16:41:16.726Z"
+  },
+  "uptime_ms": {
+    "first": 35031,
+    "last": 86566516
+  },
+  "duration_ms": 86531485,
+  "diagnostic_window_ms": {
+    "min": 5002,
+    "max": 5009
+  },
+  "aggregation": {
+    "windows_per_block": 12,
+    "blocks": 1441,
+    "last_block_windows": 12,
+    "first_window_excluded_from_deltas": true
+  },
+  "gps": {
+    "gga": {
+      "first": 334,
+      "last": 865660,
+      "delta": 865326,
+      "mean_hz": 10.000128854832434,
+      "reported_hz": {
+        "first": 9.99,
+        "last": 9.99,
+        "min": 9.98,
+        "max": 10.2
+      },
+      "messages_per_window": {
+        "50": 16566,
+        "51": 726
+      }
+    },
+    "panda": {
+      "first": 334,
+      "last": 865660,
+      "delta": 865326,
+      "mean_hz": 10.000128854832434,
+      "reported_hz": {
+        "first": 9.99,
+        "last": 9.99,
+        "min": 9.98,
+        "max": 10.2
+      },
+      "messages_per_window": {
+        "50": 16566,
+        "51": 726
+      }
+    },
+    "queued": {
+      "first": 334,
+      "last": 865660,
+      "delta": 865326,
+      "mean_hz": 10.000128854832434
+    },
+    "tx": {
+      "first": 334,
+      "last": 865660,
+      "delta": 865326,
+      "mean_hz": 10.000128854832434,
+      "reported_hz": {
+        "first": 9.99,
+        "last": 9.99,
+        "min": 9.98,
+        "max": 10.2
+      },
+      "messages_per_window": {
+        "50": 16566,
+        "51": 726
+      }
+    },
+    "hpr": {
+      "first": 334,
+      "last": 19905,
+      "delta": 19571,
+      "mean_hz": 0.2261720112627213,
+      "last_change_elapsed_ms": 1961596
+    }
+  },
+  "errors": {
+    "gps.nmeaErr": {
+      "first": 0,
+      "last": 0,
+      "delta": 0
+    },
+    "gps.crcErr": {
+      "first": 0,
+      "last": 0,
+      "delta": 0
+    },
+    "gps.fifoOvf": {
+      "first": 0,
+      "last": 0,
+      "delta": 0
+    },
+    "gps.rxFull": {
+      "first": 0,
+      "last": 0,
+      "delta": 0
+    },
+    "gps.frameErr": {
+      "first": 0,
+      "last": 0,
+      "delta": 0
+    },
+    "gps.parityErr": {
+      "first": 0,
+      "last": 0,
+      "delta": 0
+    },
+    "gps.buildFail": {
+      "first": 0,
+      "last": 0,
+      "delta": 0
+    },
+    "gps.txFail": {
+      "first": 0,
+      "last": 0,
+      "delta": 0
+    },
+    "net.txDrops": {
+      "first": 0,
+      "last": 0,
+      "delta": 0
+    },
+    "net.rtkDrops": {
+      "first": 0,
+      "last": 0,
+      "delta": 0
+    },
+    "net.sendFail": {
+      "first": 0,
+      "last": 0,
+      "delta": 0
+    },
+    "net.invalid": {
+      "first": 0,
+      "last": 164,
+      "delta": 164
+    }
+  },
+  "tasks": {
+    "control": {
+      "hz": {
+        "first": 1000.0,
+        "last": 999.0,
+        "min": 999.0,
+        "max": 1000.0
+      },
+      "peakUs": {
+        "first": 1566.0,
+        "last": 1937.0,
+        "min": 1481.0,
+        "max": 2431.0
+      },
+      "gapUs": {
+        "first": 1710.0,
+        "last": 1977.0,
+        "min": 1653.0,
+        "max": 2571.0
+      },
+      "lateMs": {
+        "first": 1.0,
+        "last": 1.0,
+        "min": 1.0,
+        "max": 2.0
+      },
+      "stack": {
+        "first": 2700.0,
+        "last": 2572.0,
+        "min": 2572.0,
+        "max": 2700.0
+      },
+      "late_sum_all_reports": 3457855,
+      "over_sum_all_reports": 3460632,
+      "nominal_period_us": 1000,
+      "max_positive_interval_jitter_us": 1571
+    },
+    "navigation": {
+      "hz": {
+        "first": 1000.0,
+        "last": 999.0,
+        "min": 999.0,
+        "max": 1000.0
+      },
+      "peakUs": {
+        "first": 840.0,
+        "last": 1048.0,
+        "min": 437.0,
+        "max": 1464.0
+      },
+      "gapUs": {
+        "first": 1796.0,
+        "last": 1689.0,
+        "min": 1325.0,
+        "max": 2639.0
+      },
+      "lateMs": {
+        "first": 0.0,
+        "last": 0.0,
+        "min": 0.0,
+        "max": 1.0
+      },
+      "stack": {
+        "first": 2124.0,
+        "last": 2044.0,
+        "min": 2044.0,
+        "max": 2124.0
+      },
+      "late_sum_all_reports": 387,
+      "over_sum_all_reports": 58,
+      "nominal_period_us": 1000,
+      "max_positive_interval_jitter_us": 1639
+    },
+    "network": {
+      "hz": {
+        "first": 1000.0,
+        "last": 999.0,
+        "min": 999.0,
+        "max": 1000.0
+      },
+      "peakUs": {
+        "first": 1823.0,
+        "last": 1669.0,
+        "min": 1317.0,
+        "max": 4220.0
+      },
+      "gapUs": {
+        "first": 1837.0,
+        "last": 2135.0,
+        "min": 1486.0,
+        "max": 4244.0
+      },
+      "lateMs": {
+        "first": 1.0,
+        "last": 1.0,
+        "min": 0.0,
+        "max": 4.0
+      },
+      "stack": {
+        "first": 2124.0,
+        "last": 2108.0,
+        "min": 2108.0,
+        "max": 2124.0
+      },
+      "late_sum_all_reports": 57890,
+      "over_sum_all_reports": 374432,
+      "nominal_period_us": 1000,
+      "max_positive_interval_jitter_us": 3244
+    },
+    "safety": {
+      "hz": {
+        "first": 50.0,
+        "last": 49.0,
+        "min": 49.0,
+        "max": 50.0
+      },
+      "peakUs": {
+        "first": 19.0,
+        "last": 22.0,
+        "min": 14.0,
+        "max": 530.0
+      },
+      "gapUs": {
+        "first": 20680.0,
+        "last": 20680.0,
+        "min": 20000.0,
+        "max": 21122.0
+      },
+      "lateMs": {
+        "first": 0.0,
+        "last": 0.0,
+        "min": 0.0,
+        "max": 1.0
+      },
+      "stack": {
+        "first": 1372.0,
+        "last": 1356.0,
+        "min": 1356.0,
+        "max": 1372.0
+      },
+      "late_sum_all_reports": 152,
+      "over_sum_all_reports": 0,
+      "nominal_period_us": 20000,
+      "max_positive_interval_jitter_us": 1122
+    }
+  },
+  "metrics": {
+    "heap": {
+      "first": 204148.0,
+      "last": 204160.0,
+      "min": 202028.0,
+      "max": 204208.0
+    },
+    "cycle.peak": {
+      "first": 1555.0,
+      "last": 1926.0,
+      "min": 1474.0,
+      "max": 2424.0
+    },
+    "cycle.gapMax": {
+      "first": 26000.0,
+      "last": 26000.0,
+      "min": 25000.0,
+      "max": 26334.0
+    },
+    "cycle.lateMax": {
+      "first": 1.0,
+      "last": 1.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "ads.peak": {
+      "first": 1394.0,
+      "last": 1772.0,
+      "min": 1304.0,
+      "max": 2013.0
+    },
+    "control.peak": {
+      "first": 2794.0,
+      "last": 2794.0,
+      "min": 2794.0,
+      "max": 2794.0
+    },
+    "gps.gapGga": {
+      "first": 100906.0,
+      "last": 101607.0,
+      "min": 100906.0,
+      "max": 101607.0
+    },
+    "gps.gapPanda": {
+      "first": 100902.0,
+      "last": 101642.0,
+      "min": 100902.0,
+      "max": 101642.0
+    },
+    "gps.gapTx": {
+      "first": 101845.0,
+      "last": 103553.0,
+      "min": 101845.0,
+      "max": 103553.0
+    },
+    "motor.drive.totalMax": {
+      "first": 81.0,
+      "last": 84.0,
+      "min": 56.0,
+      "max": 679.0
+    },
+    "motor.drive.waitMax": {
+      "first": 6.0,
+      "last": 6.0,
+      "min": 4.0,
+      "max": 417.0
+    },
+    "cycle.late": {
+      "first": 3.0,
+      "last": 3.0,
+      "min": 0.0,
+      "max": 9.0,
+      "sum_all_reports": 20697
+    },
+    "cycle.over25ms": {
+      "first": 0.0,
+      "last": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "sum_all_reports": 0
+    }
+  },
+  "steer_sample_values": {
+    "available": {
+      "1": 17293
+    },
+    "engaged": {
+      "1": 17293
+    },
+    "mode": {
+      "none": 17293
+    },
+    "guidance": {
+      "1": 17293
+    },
+    "speed": {
+      "8": 17293
+    },
+    "pwm": {
+      "60": 7859,
+      "59": 238,
+      "58": 493,
+      "57": 519,
+      "56": 510,
+      "55": 471,
+      "54": 268,
+      "53": 695,
+      "52": 432,
+      "51": 141,
+      "50": 133,
+      "49": 94,
+      "48": 280,
+      "47": 385,
+      "46": 379,
+      "45": 155,
+      "44": 299,
+      "43": 274,
+      "42": 177,
+      "41": 27,
+      "40": 6,
+      "39": 24,
+      "37": 40,
+      "38": 29,
+      "36": 69,
+      "35": 72,
+      "34": 46,
+      "33": 182,
+      "32": 268,
+      "31": 241,
+      "30": 44,
+      "29": 4,
+      "24": 4,
+      "23": 12,
+      "21": 227,
+      "22": 105,
+      "20": 115,
+      "19": 277,
+      "18": 278,
+      "17": 268,
+      "16": 231,
+      "15": 174,
+      "13": 218,
+      "14": 100,
+      "12": 181,
+      "11": 136,
+      "10": 68,
+      "0": 45
+    }
+  }
+}

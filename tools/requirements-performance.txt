@@ -1,0 +1,3 @@
+# Dependências usadas para reproduzir as figuras do ensaio de 30–31/10/2026.
+matplotlib==3.11.2
+numpy==2.5.4

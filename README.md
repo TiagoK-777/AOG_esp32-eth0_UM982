@@ -13,6 +13,14 @@ pio run -e wt32-eth01
 python test/run_native.py
 ```
 
+## Ensaio de desempenho e estabilidade — 24 horas
+
+Ensaio sintético em bancada em 30–31/10/2026, com GPS simulado a 10 Hz, BNO085, motor e RTK ativos. Foram analisados **17.293 relatórios** em **24 h 02 min**, com taxa média de **10,00013 Hz** para GGA/PANDA/envio UDP aceito. O relatório apresenta desempenho e jitter das tasks, tempos de controle, heap, contadores de erro e a explicação dos espinhos de Hz. HPR foi desativado intencionalmente durante o ensaio.
+
+![Taxas GPS e maiores intervalos registrados no ensaio sintético de 24 horas](docs/performance/2026-10-30/01-gps.png)
+
+[Ver relatório completo, condições do ensaio, gráficos e dados reproduzíveis](docs/performance/2026-10-30/README.md).
+
 ## 🚀 Funcionalidades Principais
 
 - **Comunicação Ethernet:** UDP nativo via LAN8720 (WT32-ETH01).
