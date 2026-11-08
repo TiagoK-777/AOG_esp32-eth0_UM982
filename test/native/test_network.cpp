@@ -1,7 +1,9 @@
 #include <Arduino.h>
 #include <WiFiUdp.h>
 #include <Wire.h>
+#include <Preferences.h>
 #include <cassert>
+#include <cmath>
 #include <cstring>
 #include <deque>
 #include <iostream>
@@ -14,6 +16,7 @@
 #include "network/pgn_protocol.h"
 #include "network/udp_rx.h"
 #include "network/udp_tx.h"
+#include "persist/preferences.h"
 #include "state/imu_state.h"
 #include "state/pending.h"
 #include "state/steer_state.h"
@@ -56,6 +59,99 @@ void checkSteerReply(bool enabled) {
     assert(reply.back() == sum);
     assert(((reply[11] & 2) == 0) == enabled);
     assert(state::steerSnapshot().engaged == enabled);
+}
+void saveConfig(float expectedOffset) {
+    assert(pending::maintenanceActive());
+    assert(!state::steerSnapshot().engaged);
+    assert(fakePwm[PWM1_LPWM] == 0 && fakePwm[PWM2_RPWM] == 0);
+    pending::Update update;
+    assert(pending::takePersistence(update) && update.mask == pending::Config);
+    assert(update.values.currentSensorOffset == expectedOffset);
+    assert(persist::save(update.values, update.mask));
+    pending::finishPersistence();
+}
+void checkCurrentSensor() {
+    assert(config::snapshot().currentSensorOffset == 1992.0f);
+    ConfigSnapshot initial;
+    assert(persist::load(initial));
+    std::vector<uint8_t> packet{0x80,0x81,0x7F,251,8,0x18,255,0,4,0,0,0,0,0};
+    pgn::checksum(packet.data(), packet.size());
+    auto bad = packet; bad.back() ^= 1;
+    const uint32_t reads = fakeAnalogReads;
+    receive(bad); autosteer::poll();
+    receive(std::vector<uint8_t>(packet.begin(), packet.end() - 1)); autosteer::poll();
+    assert(!pending::maintenanceActive() && fakeAnalogReads == reads);
+    assert(!config::snapshot().steerConfig.CurrentSensor);
+
+    assert(motor::drive(40, config::snapshot().steerConfig, motor::epoch()) == 40);
+    fakeAnalogValue = 2175;
+    const auto beforeRx = fakeNvs;
+    receive(packet);
+    assert(fakeNvs == beforeRx && fakeAnalogReads == reads);
+    fakeAnalogReadHook = [](int pin) {
+        assert(pin == CURRENT_SENSOR_PIN);
+        assert(fakePins[DIR1_RL_ENABLE] == LOW);
+        assert(fakePwm[PWM1_LPWM] == 0 && fakePwm[PWM2_RPWM] == 0);
+    };
+    autosteer::poll(); // Aplica fora do gate, cortando antes de capturar.
+    fakeAnalogReadHook = nullptr;
+    assert(fakeAnalogReads == reads + 1);
+    assert(config::snapshot().currentSensorOffset == 2175.0f);
+    assert(state::steerSnapshot().sensorReading == 0);
+    assert(fakeNvs == beforeRx); // Somente a manutenção pode escrever flash.
+    saveConfig(2175);
+    controlCycle();
+    assert(state::steerSnapshot().sensorReading == 0);
+    fakeAnalogValue = 2275;
+    controlCycle();
+    assert(std::fabs(state::steerSnapshot().sensorReading - 4.65f) < 0.001f);
+    fakeAnalogValue = 2075;
+    controlCycle();
+    assert(std::fabs(state::steerSnapshot().sensorReading - 7.905f) < 0.001f);
+
+    // Reenviar configuração ligada, inclusive com novo limite, não recalibra.
+    fakeAnalogValue = 3000;
+    packet[6] = 5; pgn::checksum(packet.data(), packet.size());
+    const uint32_t repeatedReads = fakeAnalogReads;
+    receive(packet); autosteer::poll();
+    assert(fakeAnalogReads == repeatedReads);
+    saveConfig(2175);
+    pending::stageSettings(config::snapshot().steerSettings);
+    autosteer::poll();
+    pending::Update settingsUpdate;
+    assert(pending::takePersistence(settingsUpdate));
+    assert(settingsUpdate.values.currentSensorOffset == 2175.0f);
+    pending::finishPersistence();
+
+    // Desativar preserva o zero; a próxima ativação o substitui e limpa o filtro.
+    packet[8] = 0; pgn::checksum(packet.data(), packet.size());
+    receive(packet); autosteer::poll(); saveConfig(2175);
+    packet[8] = 4; pgn::checksum(packet.data(), packet.size());
+    fakeAnalogValue = 2350;
+    receive(packet); autosteer::poll(); saveConfig(2350);
+    assert(state::steerSnapshot().sensorReading == 0);
+
+    // Simula boot com sensor já habilitado: carrega o zero sem nova captura.
+    ConfigSnapshot restored;
+    assert(persist::load(restored));
+    assert(restored.steerConfig.CurrentSensor && restored.currentSensorOffset == 2350.0f);
+    config::publish(restored);
+    const uint32_t bootReads = fakeAnalogReads;
+    assert(autosteer::setup(true) && fakeAnalogReads == bootReads);
+
+    std::vector<uint8_t> command{0x80,0x81,0x7F,254,8,80,0,0,100,0,0,0,0,0};
+    pgn::checksum(command.data(), command.size());
+    receive(command); controlCycle();
+    command[7] = 1; pgn::checksum(command.data(), command.size());
+    receive(command); controlCycle();
+    assert(state::steerSnapshot().engaged && state::steerSnapshot().pwmDisplay > 0);
+    // O ganho, filtro e corte pelo limite continuam iguais após a calibração.
+    fakeAnalogValue = 2450;
+    receive(command); controlCycle();
+    assert(state::steerSnapshot().engaged);
+    receive(command); controlCycle();
+    assert(!state::steerSnapshot().engaged && state::steerSnapshot().pwmDisplay == 0);
+    assert(std::fabs(state::steerSnapshot().sensorReading - 7.905f) < 0.001f);
 }
 }
 namespace ethernet {
@@ -216,5 +312,6 @@ int main() {
     assert(pending::takePersistence(update));
     pending::finishPersistence();
     receive(command); controlCycle(); checkSteerReply(false);
+    checkCurrentSensor();
     std::cout << "Rede: hello AgIO, respostas e rejeição de pacotes inválidos OK\n";
 }

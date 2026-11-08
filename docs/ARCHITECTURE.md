@@ -80,6 +80,34 @@ Para investigar os atrasos, capturar blocos completos com GPS/IMU/RTK ativos: pr
 4. RTK recebido na porta 2233 entra no FIFO em ordem. Navegação transmite somente até o espaço informado pelo buffer TX da UART. Datagrama que não cabe é descartado inteiro e contabilizado; não há truncamento deliberado em 512 bytes.
 5. PGNs 252/251/201 criam configurações pendentes. Controle aplica entre passagens, corta o motor e entrega uma cópia à manutenção. O motor permanece bloqueado durante a gravação da NVS. Uma alteração desengaja a direção; após concluir, reativar pela GUI/chave. O PGN 201 reinicia somente depois de persistir o subnet.
 
+### Zero do sensor de corrente
+
+O AOG habilita o sensor pelo PGN 251 (`0xFB`, Steer Config): bit 2 do byte 8,
+com os bytes do pacote numerados a partir de zero. Quando o controle aplica a
+transição de `CurrentSensor=0` para `1`, primeiro corta o motor e então captura
+uma leitura de `analogRead(GPIO35)` como novo zero. O filtro de corrente é
+zerado nessa ativação. A aquisição acontece na task de controle; o RX apenas
+valida e encaminha a configuração. A manutenção grava o zero junto com a
+configuração, mantendo o motor bloqueado até concluir a persistência.
+
+O padrão é **1992 contagens** (ADC de 12 bits, 0–4095), preservando o comportamento
+anterior até a primeira calibração. O valor representa a tensão de repouso na
+unidade bruta do ADC, sem conversão para volts. A nova chave NVS `sc_curroff`
+é `float`, no namespace `aog`; as chaves anteriores e `ident=2400` permanecem
+inalteradas. Instalações sem essa chave ou com valor não finito/fora da faixa
+usam 1992. O valor salvo é carregado no boot, mesmo com o sensor já habilitado,
+sem capturar novamente. PGNs 251 com a função já ligada e alterações via PGN
+252 preservam o zero. Para recalibrar, desativar e ativar a função, permitindo
+que o módulo aplique cada configuração.
+
+Ativar com o sensor alimentado e a direção em repouso, sem corrente no motor.
+A captura é uma amostra após o corte de PWM, sem espera por estabilização
+elétrica; se houver corrente residual, ela será incorporada ao zero. O cálculo
+continua `abs(zero - ADC) * 0.155`, com o mesmo filtro e limite de desengajamento.
+O modo `isIBT2CurrentSensor=true` mantém `ADC * 0.06227`, sem aplicar esse offset.
+Validar em bancada o zero, a leitura nos dois sentidos e o corte pelo limite
+antes do uso em campo.
+
 Portas mantidas: GPS origem 5120, autosteer origem/recepção 8888, RTK recepção 2233, destino AOG 9999. O IP permanece configurável pelo AgIO; final .126 para direção disponível ou .120 para GPS somente.
 
 ## Proteções e limites

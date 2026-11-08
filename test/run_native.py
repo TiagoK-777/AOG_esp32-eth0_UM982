@@ -50,6 +50,7 @@ with tempfile.TemporaryDirectory(prefix='aog-native-') as directory:
             'src/state/pending.cpp',
             'src/autosteer/autosteer_task.cpp', 'src/autosteer/pid.cpp', 'src/autosteer/safety.cpp',
             'src/hardware/ads1115.cpp', 'src/hardware/motor_pwm.cpp',
+            'src/persist/preferences.cpp',
         ])
         subprocess.run([str(binary)], check=True, env=environment, timeout=30)
         for name, flags in [('PANDA', []), ('PAOGI', ['-DTEST_PAOGI']), ('dual/IMU', ['-DTEST_DUAL'])]:

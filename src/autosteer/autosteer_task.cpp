@@ -38,6 +38,7 @@ uint8_t guidanceStatus = 0;
 bool guidanceStatusChanged = false;
 float gpsSpeed = 0, steerAngleSetPoint = 0, steerAngleActual = 0, steerAngleError = 0;
 float sensorReading = 0, sensorSample = 0;
+float currentSensorOffset = ConfigSnapshot{}.currentSensorOffset;
 int16_t steeringPosition = 0, helloSteerPosition = 0, pwmDrive = 0, pwmDisplay = 0;
 uint8_t currentState = 1, reading = 0, previous = 0, pulseCount = 0;
 bool encEnable = false;
@@ -86,10 +87,21 @@ void applyPending() {
     disengage();
     ConfigSnapshot values = config::snapshot();
     if (update.mask & pending::Settings) values.steerSettings = update.values.steerSettings;
-    if (update.mask & pending::Config) values.steerConfig = update.values.steerConfig;
+    if (update.mask & pending::Config) {
+        if (!values.steerConfig.CurrentSensor && update.values.steerConfig.CurrentSensor) {
+            // O zero é capturado pelo controle após o corte, nunca no RX da rede.
+            if (!userSettings.isIBT2CurrentSensor)
+                values.currentSensorOffset = static_cast<float>(analogRead(CURRENT_SENSOR_PIN));
+            sensorReading = 0;
+            sensorSample = 0;
+            status.sensorReading = 0;
+        }
+        values.steerConfig = update.values.steerConfig;
+    }
     if (update.mask & pending::Network) values.networkAddress = update.values.networkAddress;
     steerSettings = values.steerSettings;
     steerConfig = values.steerConfig;
+    currentSensorOffset = values.currentSensorOffset;
     config::publish(values);
     // A conversão seguinte já usa o MUX da nova configuração.
     if (available) {
@@ -116,6 +128,7 @@ bool setup(bool motorReady) {
     ConfigSnapshot values = config::snapshot();
     steerSettings = values.steerSettings;
     steerConfig = values.steerConfig;
+    currentSensorOffset = values.currentSensorOffset;
     available = adc.testConnection() && motorReady;
     AOG_LOG_PRINTLN(available ? "ADC Connecton OK" : "ADC Connecton FAILED!");
     adc.setSampleRate(ADS1115_REG_CONFIG_DR_128SPS);
@@ -217,7 +230,7 @@ void poll()
       }
       else
       {
-        sensorSample = abs(1992.0f - sensorSample) * 0.155f;
+        sensorSample = abs(currentSensorOffset - sensorSample) * 0.155f;
       }
 
       sensorReading = sensorReading * 0.7 + sensorSample * 0.3;

@@ -160,7 +160,7 @@ void checkNavigationTask() {
 void checkNvsCompatibility() {
     ConfigSnapshot initial;
     assert(persist::load(initial));
-    assert(fakeNvs.size() == 24);
+    assert(fakeNvs.size() == 25);
     const char* byteKeys[] = {
         "st_kp", "st_lowpwm", "st_minpwm", "st_highpwm", "sc_invwas", "sc_relayah",
         "sc_motordir", "sc_singlewas", "sc_cytron", "sc_steersw", "sc_steerbtn", "sc_shaftenc",
@@ -170,10 +170,17 @@ void checkNvsCompatibility() {
     assert(fakeNvs.at("ident").size() == 4);
     assert(fakeNvs.at("st_kp").size() == 1 && fakeNvs.at("st_wasoff").size() == 2);
     assert(fakeNvs.at("st_senscnt").size() == 4 && fakeNvs.at("st_ackfix").size() == 4);
+    assert(fakeNvs.at("sc_curroff").size() == 4);
+    // Uma instalação anterior não contém a chave nova; mantém o zero histórico.
+    fakeNvs.erase("sc_curroff");
+    ConfigSnapshot legacy;
+    legacy.currentSensorOffset = 123;
+    assert(persist::load(legacy) && legacy.currentSensorOffset == 1992.0f);
     initial.steerSettings.Kp = 93;
     initial.steerSettings.wasOffset = -2048;
     initial.steerSettings.steerSensorCounts = 42.5f;
     initial.steerConfig.IsUseY_Axis = 1;
+    initial.currentSensorOffset = 2137.0f;
     initial.networkAddress = {10,20,30};
     assert(persist::save(initial, pending::Settings | pending::Config | pending::Network));
     ConfigSnapshot restored;
@@ -181,8 +188,16 @@ void checkNvsCompatibility() {
     assert(restored.steerSettings.Kp == 93 && restored.steerSettings.wasOffset == -2048);
     assert(restored.steerSettings.steerSensorCounts == 42.5f);
     assert(restored.steerConfig.IsUseY_Axis == 1 && restored.networkAddress.ipTwo == 20);
+    assert(restored.currentSensorOffset == 2137.0f);
+    for (float invalid : {-1.0f, 4096.0f, NAN, INFINITY}) {
+        Preferences prefs;
+        prefs.putFloat("sc_curroff", invalid);
+        assert(persist::load(restored) && restored.currentSensorOffset == 1992.0f);
+    }
+    assert(persist::save(initial, pending::Config));
     fakeNvsFail = true;
     assert(!persist::save(initial, pending::Settings));
+    assert(!persist::save(initial, pending::Config));
     fakeNvsFail = false;
 }
 

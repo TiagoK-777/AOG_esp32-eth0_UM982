@@ -40,7 +40,14 @@ inline bool ledcWrite(int pin, uint32_t value) {
 }
 inline void analogReadResolution(int) {}
 inline void analogSetAttenuation(int) {}
-inline int analogRead(int) { return 1992; }
+inline int fakeAnalogValue = 1992;
+inline uint32_t fakeAnalogReads = 0;
+inline void (*fakeAnalogReadHook)(int) = nullptr;
+inline int analogRead(int pin) {
+    ++fakeAnalogReads;
+    if (fakeAnalogReadHook) fakeAnalogReadHook(pin);
+    return fakeAnalogValue;
+}
 inline char* dtostrf(double value, signed char width, unsigned char precision, char* output) {
     std::sprintf(output, "%*.*f", static_cast<int>(width), static_cast<int>(precision), value);
     return output;

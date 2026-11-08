@@ -50,6 +50,7 @@ struct ConfigSnapshot {
     Storage steerSettings;
     Setup steerConfig;
     ConfigIP networkAddress;
+    float currentSensorOffset = 1992.0f; // Contagens ADC de 12 bits; sensor centrado em tensão.
 };
 namespace config {
 ConfigSnapshot snapshot();

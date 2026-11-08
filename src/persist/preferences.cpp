@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <Preferences.h>
+#include <cmath>
 #include "persist/preferences.h"
 #include "config/defines.h"
 #include "state/pending.h"
@@ -46,6 +47,7 @@ static bool putConfig(Preferences& prefs, const ConfigSnapshot& values)
     ok = (prefs.putUChar("sc_pulsemax", values.steerConfig.PulseCountMax) == 1) && ok;
     ok = (prefs.putUChar("sc_danfoss", values.steerConfig.IsDanfoss) == 1) && ok;
     ok = (prefs.putUChar("sc_useyaxis", values.steerConfig.IsUseY_Axis) == 1) && ok;
+    ok = (prefs.putFloat("sc_curroff", values.currentSensorOffset) == 4) && ok;
     return ok;
 }
 
@@ -64,6 +66,9 @@ static void getConfig(Preferences& prefs, ConfigSnapshot& values)
     values.steerConfig.PulseCountMax = prefs.getUChar("sc_pulsemax", 5);
     values.steerConfig.IsDanfoss = prefs.getUChar("sc_danfoss", 0);
     values.steerConfig.IsUseY_Axis = prefs.getUChar("sc_useyaxis", 0);
+    float offset = prefs.getFloat("sc_curroff", ConfigSnapshot{}.currentSensorOffset);
+    values.currentSensorOffset = std::isfinite(offset) && offset >= 0 && offset <= 4095
+        ? offset : ConfigSnapshot{}.currentSensorOffset;
 }
 
 static bool putNetIP(Preferences& prefs, const ConfigSnapshot& values)
