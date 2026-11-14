@@ -84,11 +84,22 @@ Para investigar os atrasos, capturar blocos completos com GPS/IMU/RTK ativos: pr
 
 O AOG habilita o sensor pelo PGN 251 (`0xFB`, Steer Config): bit 2 do byte 8,
 com os bytes do pacote numerados a partir de zero. Quando o controle aplica a
-transição de `CurrentSensor=0` para `1`, primeiro corta o motor e então captura
-uma leitura de `analogRead(GPIO35)` como novo zero. O filtro de corrente é
-zerado nessa ativação. A aquisição acontece na task de controle; o RX apenas
-valida e encaminha a configuração. A manutenção grava o zero junto com a
-configuração, mantendo o motor bloqueado até concluir a persistência.
+transição de `CurrentSensor=0` para `1`, primeiro corta o motor e bloqueia o
+engajamento. Uma máquina de estados aguarda **100 ms** de estabilização e então
+captura **32 leituras** de `analogRead(GPIO35)`, espaçadas por pelo menos **5 ms**.
+A média aritmética dessas leituras é o novo zero, preservando a parte fracionária.
+O tempo nominal é de **260 ms**, acrescido dos atrasos de escalonamento e gravação.
+Apenas uma leitura é feita por passagem, sem espera ocupada e sem rajadas para
+compensar atrasos. As passagens e ciclos de controle continuam durante a coleta;
+a leitura de corrente para desengajamento fica suspensa enquanto a manutenção
+bloqueia o motor. O filtro é zerado ao iniciar e ao concluir a calibração.
+
+A aquisição acontece na task de controle; o RX apenas valida e encaminha a
+configuração. Nenhum pedido de gravação é entregue antes da 32ª leitura. Ao
+concluir, o controle publica o zero e entrega a configuração à manutenção,
+mantendo o motor bloqueado até concluir a persistência. Novas configurações
+ficam pendentes durante a calibração/gravação. Ao final é necessário reativar
+a direção; comandos ON consumidos durante a coleta não a reengajam sozinhos.
 
 O padrão é **1992 contagens** (ADC de 12 bits, 0–4095), preservando o comportamento
 anterior até a primeira calibração. O valor representa a tensão de repouso na
@@ -101,9 +112,9 @@ sem capturar novamente. PGNs 251 com a função já ligada e alterações via PG
 que o módulo aplique cada configuração.
 
 Ativar com o sensor alimentado e a direção em repouso, sem corrente no motor.
-A captura é uma amostra após o corte de PWM, sem espera por estabilização
-elétrica; se houver corrente residual, ela será incorporada ao zero. O cálculo
-continua `abs(zero - ADC) * 0.155`, com o mesmo filtro e limite de desengajamento.
+A espera reduz a influência de corrente residual e a média reduz o ruído;
+corrente ainda presente durante as 32 leituras será incorporada ao zero.
+O cálculo continua `abs(zero - ADC) * 0.155`, com o mesmo filtro e limite de desengajamento.
 O modo `isIBT2CurrentSensor=true` mantém `ADC * 0.06227`, sem aplicar esse offset.
 Validar em bancada o zero, a leitura nos dois sentidos e o corte pelo limite
 antes do uso em campo.

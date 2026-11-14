@@ -32,6 +32,11 @@ bool take(Update& update) {
     portEXIT_CRITICAL(&mux);
     return ready;
 }
+void beginMaintenance() {
+    portENTER_CRITICAL(&mux);
+    maintenance = true;
+    portEXIT_CRITICAL(&mux);
+}
 void requestPersistence(const Update& update) {
     portENTER_CRITICAL(&mux);
     persistence = update;

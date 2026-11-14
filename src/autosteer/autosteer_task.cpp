@@ -39,6 +39,15 @@ bool guidanceStatusChanged = false;
 float gpsSpeed = 0, steerAngleSetPoint = 0, steerAngleActual = 0, steerAngleError = 0;
 float sensorReading = 0, sensorSample = 0;
 float currentSensorOffset = ConfigSnapshot{}.currentSensorOffset;
+constexpr uint32_t CURRENT_ZERO_SETTLE_MS = 100, CURRENT_ZERO_SAMPLE_MS = 5;
+constexpr uint8_t CURRENT_ZERO_SAMPLES = 32;
+enum class CurrentZeroPhase : uint8_t { Idle, Settling, Sampling };
+struct CurrentZeroCalibration {
+    CurrentZeroPhase phase = CurrentZeroPhase::Idle;
+    uint32_t lastMs = 0, sum = 0;
+    uint8_t samples = 0;
+    pending::Update update;
+} currentZero;
 int16_t steeringPosition = 0, helloSteerPosition = 0, pwmDrive = 0, pwmDisplay = 0;
 uint8_t currentState = 1, reading = 0, previous = 0, pulseCount = 0;
 bool encEnable = false;
@@ -86,12 +95,11 @@ void applyPending() {
     if (!pending::take(update)) return;
     disengage();
     ConfigSnapshot values = config::snapshot();
+    bool calibrateCurrent = false;
     if (update.mask & pending::Settings) values.steerSettings = update.values.steerSettings;
     if (update.mask & pending::Config) {
         if (!values.steerConfig.CurrentSensor && update.values.steerConfig.CurrentSensor) {
-            // O zero é capturado pelo controle após o corte, nunca no RX da rede.
-            if (!userSettings.isIBT2CurrentSensor)
-                values.currentSensorOffset = static_cast<float>(analogRead(CURRENT_SENSOR_PIN));
+            calibrateCurrent = !userSettings.isIBT2CurrentSensor;
             sensorReading = 0;
             sensorSample = 0;
             status.sensorReading = 0;
@@ -109,10 +117,48 @@ void applyPending() {
         adc.triggerConversion();
     }
     update.values = values;
-    pending::requestPersistence(update);
+    if (calibrateCurrent) {
+        pending::beginMaintenance();
+        currentZero.update = update;
+        currentZero.sum = 0;
+        currentZero.samples = 0;
+        currentZero.lastMs = millis();
+        currentZero.phase = CurrentZeroPhase::Settling;
+    } else {
+        pending::requestPersistence(update);
+    }
     status.engaged = false; status.pwmDisplay = 0; status.steerSwitch = 1;
     status.switchByte = (remoteSwitch << 2) | (steerSwitch << 1) | workSwitch;
     state::publishSteer(status);
+}
+void pollCurrentZero() {
+    const uint32_t now = millis();
+    switch (currentZero.phase) {
+    case CurrentZeroPhase::Idle:
+        break;
+    case CurrentZeroPhase::Settling:
+        if (now - currentZero.lastMs >= CURRENT_ZERO_SETTLE_MS) {
+            currentZero.lastMs = now;
+            currentZero.phase = CurrentZeroPhase::Sampling;
+        }
+        break;
+    case CurrentZeroPhase::Sampling:
+        if (now - currentZero.lastMs < CURRENT_ZERO_SAMPLE_MS) break;
+        currentZero.lastMs = now;
+        // Uma leitura por passagem; atrasos não disparam uma rajada de amostras.
+        currentZero.sum += analogRead(CURRENT_SENSOR_PIN);
+        if (++currentZero.samples == CURRENT_ZERO_SAMPLES) {
+            currentSensorOffset = static_cast<float>(currentZero.sum) / CURRENT_ZERO_SAMPLES;
+            currentZero.update.values.currentSensorOffset = currentSensorOffset;
+            config::publish(currentZero.update.values);
+            sensorReading = 0;
+            sensorSample = 0;
+            disengage();
+            currentZero.phase = CurrentZeroPhase::Idle;
+            pending::requestPersistence(currentZero.update);
+        }
+        break;
+    }
 }
 }
 diagnostics::Timing takeCycleTiming() { return cycleTiming.take(); }
@@ -143,6 +189,7 @@ bool setup(bool motorReady) {
 void poll()
 {
   applyPending();
+  pollCurrentZero();
   if (!available) return;
   GuidanceCommand incoming = state::guidanceSnapshot();
   if (incoming.sequence != command.sequence) {
@@ -220,7 +267,7 @@ void poll()
 
 
 
-    if (steerConfig.CurrentSensor)
+    if (steerConfig.CurrentSensor && !pending::maintenanceActive())
     {
       sensorSample = (float)analogRead(CURRENT_SENSOR_PIN);
 

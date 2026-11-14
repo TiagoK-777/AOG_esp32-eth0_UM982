@@ -70,6 +70,59 @@ void saveConfig(float expectedOffset) {
     assert(persist::save(update.values, update.mask));
     pending::finishPersistence();
 }
+void finishCurrentZero(int baseline, bool fractional = false, bool delayed = false) {
+    const auto beforeFlash = fakeNvs;
+    const float previousOffset = config::snapshot().currentSensorOffset;
+    const uint32_t reads = fakeAnalogReads, cycles = state::steerSnapshot().cycles;
+    auto tick = [&](uint32_t elapsed) {
+        fakeMillis += elapsed;
+        autosteer::poll();
+        safety::poll();
+        network::poll();
+        assert(pending::maintenanceActive());
+        assert(!state::steerSnapshot().engaged);
+        assert(fakePwm[PWM1_LPWM] == 0 && fakePwm[PWM2_RPWM] == 0);
+        assert(fakePins[DIR1_RL_ENABLE] == LOW);
+        assert(fakeNvs == beforeFlash);
+    };
+    auto incomplete = [&] {
+        pending::Update update;
+        assert(!pending::takePersistence(update) && !pending::take(update));
+        assert(config::snapshot().currentSensorOffset == previousOffset);
+    };
+    // Corrente residual durante estabilização não entra na média.
+    fakeAnalogValue = 3500;
+    for (unsigned ms = 1; ms <= 100; ++ms) {
+        if (ms == 1 || ms == 50) {
+            auto command = state::guidanceSnapshot();
+            command.valid = true; command.guidanceStatus = ms == 50;
+            command.gpsSpeed = 8; command.receivedMs = fakeMillis;
+            state::publishGuidance(command);
+        }
+        tick(1);
+        incomplete();
+        assert(fakeAnalogReads == reads);
+    }
+    for (unsigned sample = 0; sample < 32; ++sample) {
+        fakeAnalogValue = baseline + (sample % 2 ? 25 + fractional : -25);
+        for (unsigned ms = 0; ms < 4; ++ms) {
+            tick(1); incomplete();
+            assert(fakeAnalogReads == reads + sample);
+        }
+        // Mesmo com atraso, só uma amostra é colhida, sem rajada para compensar.
+        tick(delayed && sample == 10 ? 80 : 1);
+        assert(fakeAnalogReads == reads + sample + 1);
+        if (sample < 31) incomplete();
+        else {
+            assert(config::snapshot().currentSensorOffset == baseline + (fractional ? 0.5f : 0));
+        }
+        // Repetir a passagem no mesmo millis não gera outra leitura.
+        tick(0);
+        assert(fakeAnalogReads == reads + sample + 1);
+    }
+    assert(state::steerSnapshot().cycles > cycles);
+    fakeAnalogValue = baseline;
+}
 void checkCurrentSensor() {
     assert(config::snapshot().currentSensorOffset == 1992.0f);
     ConfigSnapshot initial;
@@ -93,14 +146,17 @@ void checkCurrentSensor() {
         assert(fakePins[DIR1_RL_ENABLE] == LOW);
         assert(fakePwm[PWM1_LPWM] == 0 && fakePwm[PWM2_RPWM] == 0);
     };
-    autosteer::poll(); // Aplica fora do gate, cortando antes de capturar.
-    fakeAnalogReadHook = nullptr;
-    assert(fakeAnalogReads == reads + 1);
-    assert(config::snapshot().currentSensorOffset == 2175.0f);
+    autosteer::poll(); // Corta fora do gate e inicia a estabilização, sem ler ADC.
+    assert(fakeAnalogReads == reads);
+    assert(config::snapshot().currentSensorOffset == 1992.0f);
     assert(state::steerSnapshot().sensorReading == 0);
     assert(fakeNvs == beforeRx); // Somente a manutenção pode escrever flash.
+    finishCurrentZero(2175);
+    fakeAnalogReadHook = nullptr;
+    assert(fakeAnalogReads == reads + 32);
     saveConfig(2175);
     controlCycle();
+    assert(!state::steerSnapshot().engaged); // ON recebido durante calibração não reengaja.
     assert(state::steerSnapshot().sensorReading == 0);
     fakeAnalogValue = 2275;
     controlCycle();
@@ -128,7 +184,9 @@ void checkCurrentSensor() {
     receive(packet); autosteer::poll(); saveConfig(2175);
     packet[8] = 4; pgn::checksum(packet.data(), packet.size());
     fakeAnalogValue = 2350;
-    receive(packet); autosteer::poll(); saveConfig(2350);
+    receive(packet); autosteer::poll();
+    finishCurrentZero(2350);
+    saveConfig(2350);
     assert(state::steerSnapshot().sensorReading == 0);
 
     // Simula boot com sensor já habilitado: carrega o zero sem nova captura.
@@ -152,6 +210,16 @@ void checkCurrentSensor() {
     receive(command); controlCycle();
     assert(!state::steerSnapshot().engaged && state::steerSnapshot().pwmDisplay == 0);
     assert(std::fabs(state::steerSnapshot().sensorReading - 7.905f) < 0.001f);
+
+    // Timers atravessam wrap de millis e a média preserva a parte fracionária.
+    packet[8] = 0; pgn::checksum(packet.data(), packet.size());
+    receive(packet); autosteer::poll(); saveConfig(2350);
+    fakeMillis = UINT32_MAX - 50;
+    packet[8] = 4; pgn::checksum(packet.data(), packet.size());
+    receive(packet); autosteer::poll();
+    finishCurrentZero(2200, true, true);
+    saveConfig(2200.5f);
+    assert(persist::load(restored) && restored.currentSensorOffset == 2200.5f);
 }
 }
 namespace ethernet {

@@ -45,6 +45,11 @@ O PGN 251 também é testado no fluxo RX → controle → manutenção: captura 
 de corrente após o corte, ausência de leitura ADC/gravação NVS no RX, rejeição
 de pacote inválido/truncado, preservação em reenvios e mudanças de settings,
 recalibração após desativar/ativar, carga no boot e desengajamento pelo limite.
+Verifica também estabilização de 100 ms sem leituras, média de exatamente 32
+amostras com ruído, intervalo mínimo de 5 ms, preservação de frações, wrap de
+`millis()` e ausência de rajadas em passagens atrasadas. Motor e engajamento
+permanecem bloqueados até a persistência, mesmo com comandos ON durante a coleta;
+os ciclos de controle continuam e não há pedido de gravação antes da última amostra.
 As regressões NVS cobrem a chave nova `sc_curroff` (`float`), instalações antigas
 sem essa chave e fallback para 1992 em valores não finitos/fora de 0–4095.
 
